@@ -1,0 +1,84 @@
+version: 2
+
+project_name: phunter
+
+before:
+  hooks:
+    - go mod tidy
+
+builds:
+  - env:
+      - CGO_ENABLED=0
+    goos:
+      - linux
+      - darwin
+      - windows
+    goarch:
+      - amd64
+      - arm64
+    ignore:
+      - goos: windows
+        goarch: arm64
+    ldflags:
+      - -s -w
+
+archives:
+  - formats:
+      - tar.gz
+    name_template: "{{ .ProjectName }}_{{ .Os }}_{{ .Arch }}"
+    format_overrides:
+      - goos: windows
+        formats:
+          - zip
+
+checksum:
+  name_template: "checksums.txt"
+
+changelog:
+  sort: asc
+  filters:
+    exclude:
+      - "^docs:"
+      - "^test:"
+      - "^chore:"
+
+# Homebrew tap — requires a separate GitHub repo: homebrew-phunter
+brews:
+  - name: phunter
+    homepage: "https://github.com/derangga/phunter"
+    description: "Terminal UI for hunting and killing processes listening on TCP ports"
+    license: "MIT"
+    install: |
+      bin.install "phunter"
+    test: |
+      system "#{bin}/phunter --version"
+    repository:
+      owner: derangga
+      name: homebrew-phunter
+      token: "{{ .Env.TAP_GITHUB_TOKEN }}"
+
+# .deb and .rpm packages attached to GitHub Releases
+nfpms:
+  - id: packages
+    package_name: phunter
+    vendor: derangga
+    maintainer: "derangga <aldebaransdev@gmail.com>"
+    description: "Terminal UI for hunting and killing processes listening on TCP ports"
+    homepage: "https://github.com/derangga/phunter"
+    license: "MIT"
+    formats:
+      - deb
+      - rpm
+    bindir: /usr/bin
+
+# Nix — pushes derivation to a NUR repo: nur-phunter (optional)
+# Remove this section if you don't want a NUR repo.
+nix:
+  - name: phunter
+    description: "Terminal UI for hunting and killing processes listening on TCP ports"
+    homepage: "https://github.com/derangga/phunter"
+    license: "mit"
+    repository:
+      owner: derangga
+      name: nur-phunter
+      token: "{{ .Env.NUR_GITHUB_TOKEN }}"

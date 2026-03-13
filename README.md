@@ -18,29 +18,65 @@
 ### Build from source
 
 ```sh
-git clone https://github.com/sociolla/portkiller-tui
-cd portkiller-tui
+git clone https://github.com/derangga/phunter
+cd phunter
 go build -o phunter .
-./phunter
+sudo mv phunter /usr/local/bin/
 ```
 
 ### go install
 
 ```sh
-go install phunter@latest
+go install github.com/derangga/phunter@latest
 ```
 
-### Homebrew
+### Manual binary download
 
 ```sh
-# coming soon
-brew install phunter
+# macOS — Apple Silicon (M1/M2/M3)
+curl -L https://github.com/derangga/phunter/releases/latest/download/phunter_darwin_arm64.tar.gz | tar xz
+sudo mv phunter /usr/local/bin/
+
+# macOS — Intel
+curl -L https://github.com/derangga/phunter/releases/latest/download/phunter_darwin_amd64.tar.gz | tar xz
+sudo mv phunter /usr/local/bin/
+
+# Linux — amd64
+curl -L https://github.com/derangga/phunter/releases/latest/download/phunter_linux_amd64.tar.gz | tar xz
+sudo mv phunter /usr/local/bin/
+
+# Linux — arm64
+curl -L https://github.com/derangga/phunter/releases/latest/download/phunter_linux_arm64.tar.gz | tar xz
+sudo mv phunter /usr/local/bin/
+```
+
+### apt / .deb (Linux)
+
+```sh
+# amd64
+curl -LO https://github.com/derangga/phunter/releases/latest/download/phunter_linux_amd64.deb
+sudo dpkg -i phunter_linux_amd64.deb
+
+# arm64
+curl -LO https://github.com/derangga/phunter/releases/latest/download/phunter_linux_arm64.deb
+sudo dpkg -i phunter_linux_arm64.deb
 ```
 
 ### Nix
 
 ```sh
-nix run github:sociolla/portkiller-tui
+# run without installing
+nix run github:derangga/phunter
+
+# install to profile
+nix profile install github:derangga/phunter
+```
+
+### Homebrew (coming soon)
+
+```sh
+brew tap derangga/phunter
+brew install phunter
 ```
 
 ## Usage
