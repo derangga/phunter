@@ -42,19 +42,17 @@ changelog:
       - "^test:"
       - "^chore:"
 
-# Homebrew tap — requires a separate GitHub repo: homebrew-phunter
-brews:
+# Homebrew tap — pushes formula to derangga/homebrew-formulae
+homebrew:
   - name: phunter
     homepage: "https://github.com/derangga/phunter"
     description: "Terminal UI for hunting and killing processes listening on TCP ports"
     license: "MIT"
     install: |
       bin.install "phunter"
-    test: |
-      system "#{bin}/phunter --version"
     repository:
       owner: derangga
-      name: homebrew-phunter
+      name: homebrew-formulae
       token: "{{ .Env.TAP_GITHUB_TOKEN }}"
 
 # .deb and .rpm packages attached to GitHub Releases

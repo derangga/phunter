@@ -72,10 +72,10 @@ nix run github:derangga/phunter
 nix profile install github:derangga/phunter
 ```
 
-### Homebrew (coming soon)
+### Homebrew
 
 ```sh
-brew tap derangga/phunter
+brew tap derangga/formulae
 brew install phunter
 ```
 
