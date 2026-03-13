@@ -72,7 +72,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case tea.WindowSizeMsg:
 		m.width = msg.Width
 		m.height = msg.Height
-		nameW := max(m.width-colPID-colUser-colType-colAddr-colPort, 12)
+		nameW := max(m.width-colPID-colUser-colType-colAddr-colPort-12, 12)
 		m.table.SetColumns(tableColumns(nameW))
 		tableH := max(m.height-7, 1)
 		m.table.SetHeight(tableH)
