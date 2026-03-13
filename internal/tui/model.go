@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/charmbracelet/bubbles/table"
 	tea "github.com/charmbracelet/bubbletea"
@@ -12,10 +13,14 @@ import (
 	"phunter/internal/theme"
 )
 
+const autoRefreshInterval = 5 * time.Second
+
 type refreshMsg struct {
 	processes []process.Process
 	err       error
 }
+
+type tickMsg time.Time
 
 type model struct {
 	table      table.Model
@@ -24,9 +29,10 @@ type model struct {
 	statusMsg  string
 	confirming bool
 	selected   table.Row
-	quitting   bool
-	width      int
-	height     int
+	quitting    bool
+	autoRefresh bool
+	width       int
+	height      int
 }
 
 // New creates and returns the initial TUI model.
@@ -50,6 +56,12 @@ func refreshCmd() tea.Cmd {
 	}
 }
 
+func tickCmd() tea.Cmd {
+	return tea.Tick(autoRefreshInterval, func(t time.Time) tea.Msg {
+		return tickMsg(t)
+	})
+}
+
 func (m model) Init() tea.Cmd {
 	return refreshCmd()
 }
@@ -64,6 +76,12 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.table.SetColumns(tableColumns(nameW))
 		tableH := max(m.height-7, 1)
 		m.table.SetHeight(tableH)
+		return m, nil
+
+	case tickMsg:
+		if m.autoRefresh {
+			return m, tea.Batch(refreshCmd(), tickCmd())
+		}
 		return m, nil
 
 	case refreshMsg:
@@ -84,7 +102,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			}
 		}
 		m.table.SetRows(rows)
-		if m.statusMsg == "" || strings.HasPrefix(m.statusMsg, "Refreshing") {
+		if m.statusMsg == "" || strings.HasPrefix(m.statusMsg, "Refreshing") || strings.HasPrefix(m.statusMsg, "Auto-refresh") {
 			m.statusMsg = fmt.Sprintf("%d process(es) listening", len(m.processes))
 		}
 		return m, nil
@@ -108,6 +126,14 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		case "r":
 			m.statusMsg = "Refreshing..."
 			return m, refreshCmd()
+		case "a":
+			m.autoRefresh = !m.autoRefresh
+			if m.autoRefresh {
+				m.statusMsg = "Auto-refresh ON (5s)"
+				return m, tickCmd()
+			}
+			m.statusMsg = "Auto-refresh OFF"
+			return m, nil
 		case "enter", "k":
 			if len(m.processes) == 0 {
 				return m, nil

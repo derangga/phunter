@@ -17,8 +17,17 @@ func (m model) View() string {
 	helpBar := m.renderHelpBar()
 	helpBarH := strings.Count(helpBar, "\n") + 1
 
+	var autoRefreshBadge string
+	if m.autoRefresh {
+		autoRefreshBadge = m.styles.AutoRefreshOn.Render("● auto-refresh on")
+	} else {
+		autoRefreshBadge = m.styles.AutoRefreshOff.Render("○ auto-refresh off")
+	}
+
 	var sb strings.Builder
-	sb.WriteString(m.styles.Title.Render("phunter"))
+	sb.WriteString(m.styles.Title.Render("PortHunter: Hunt the active port and Kill it"))
+	sb.WriteString("\n")
+	sb.WriteString(autoRefreshBadge)
 	sb.WriteString("\n")
 	sb.WriteString(m.table.View())
 	sb.WriteString("\n")
@@ -66,6 +75,7 @@ func (m model) renderHelpBar() string {
 		{"↑/↓", "Navigate"},
 		{"Enter/k", "Kill"},
 		{"r", "Refresh"},
+		{"a", "Auto-refresh"},
 		{"q", "Quit"},
 	}
 

@@ -8,16 +8,18 @@ import (
 )
 
 type Styles struct {
-	Title     lipgloss.Style
-	Status    lipgloss.Style
-	HelpBar   lipgloss.Style
-	HelpKey   lipgloss.Style
-	HelpDesc  lipgloss.Style
-	DialogBox lipgloss.Style
-	DialogBody lipgloss.Style
-	Yes       lipgloss.Style
-	No        lipgloss.Style
-	Table     table.Styles
+	Title          lipgloss.Style
+	Status         lipgloss.Style
+	AutoRefreshOn  lipgloss.Style
+	AutoRefreshOff lipgloss.Style
+	HelpBar        lipgloss.Style
+	HelpKey        lipgloss.Style
+	HelpDesc       lipgloss.Style
+	DialogBox      lipgloss.Style
+	DialogBody     lipgloss.Style
+	Yes            lipgloss.Style
+	No             lipgloss.Style
+	Table          table.Styles
 }
 
 func NewStyles(t theme.Theme) Styles {
@@ -25,10 +27,21 @@ func NewStyles(t theme.Theme) Styles {
 		Title: lipgloss.NewStyle().
 			Bold(true).
 			Foreground(lipgloss.Color(t.Title)).
-			MarginBottom(1),
+			PaddingLeft(1),
 
 		Status: lipgloss.NewStyle().
 			Foreground(lipgloss.Color(t.StatusText)),
+
+		AutoRefreshOn: lipgloss.NewStyle().
+			Foreground(lipgloss.Color(t.AutoRefreshOn)).
+			Bold(true).
+			PaddingLeft(1).
+			MarginBottom(1),
+
+		AutoRefreshOff: lipgloss.NewStyle().
+			Foreground(lipgloss.Color(t.AutoRefreshOff)).
+			PaddingLeft(1).
+			MarginBottom(1),
 
 		HelpBar: lipgloss.NewStyle().
 			Background(lipgloss.Color(t.HelpBarBg)).

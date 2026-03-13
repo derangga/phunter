@@ -28,6 +28,8 @@ no_button          = "#8087a2"   # Overlay1
 table_header_border = "#494d64"  # Surface1
 selected_row_fg    = "#181926"   # Crust
 selected_row_bg    = "#c6a0f6"   # Mauve
+auto_refresh_on    = "#a6da95"   # Green
+auto_refresh_off   = "#6e738d"   # Overlay0
 `
 
 type Theme struct {
@@ -44,6 +46,8 @@ type Theme struct {
 	TableHeaderBorder string `toml:"table_header_border"`
 	SelectedRowFg    string `toml:"selected_row_fg"`
 	SelectedRowBg    string `toml:"selected_row_bg"`
+	AutoRefreshOn    string `toml:"auto_refresh_on"`
+	AutoRefreshOff   string `toml:"auto_refresh_off"`
 }
 
 type configFile struct {
@@ -65,6 +69,8 @@ func DefaultTheme() Theme {
 		TableHeaderBorder: "#494d64",
 		SelectedRowFg:    "#181926",
 		SelectedRowBg:    "#c6a0f6",
+		AutoRefreshOn:    "#a6da95",
+		AutoRefreshOff:   "#6e738d",
 	}
 }
 
