@@ -43,7 +43,7 @@ changelog:
       - "^chore:"
 
 # Homebrew tap — pushes formula to derangga/homebrew-formulae
-homebrew:
+brews:
   - name: phunter
     homepage: "https://github.com/derangga/phunter"
     description: "Terminal UI for hunting and killing processes listening on TCP ports"
