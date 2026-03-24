@@ -2,7 +2,7 @@
 
 > Port Hunter — a terminal UI for finding and killing processes listening on TCP ports.
 
-![demo placeholder](https://via.placeholder.com/800x400?text=demo+GIF+goes+here)
+![demo placeholder](./screenshots/phunter-capture.webp)
 
 ## Features
 
