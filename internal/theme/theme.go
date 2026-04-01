@@ -74,11 +74,10 @@ func DefaultTheme() Theme {
 	}
 }
 
+// Load reads the theme from the XDG config file. If missing or invalid, returns defaults.
 func Load() Theme {
 	path, err := xdg.SearchConfigFile(configPath)
 	if err != nil {
-		// Config doesn't exist yet — generate it.
-		generate()
 		return DefaultTheme()
 	}
 
@@ -90,7 +89,11 @@ func Load() Theme {
 	return cfg.Colors
 }
 
-func generate() {
+// EnsureConfig writes the default config file if it doesn't already exist.
+func EnsureConfig() {
+	if _, err := xdg.SearchConfigFile(configPath); err == nil {
+		return // already exists
+	}
 	path, err := xdg.ConfigFile(configPath)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "phunter: warning: could not create config path: %v\n", err)
