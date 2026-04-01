@@ -1,12 +1,14 @@
 package process
 
 import (
+	"errors"
 	"fmt"
 	"os"
 	"os/exec"
 	"strconv"
 	"strings"
 	"syscall"
+	"time"
 )
 
 // Process represents a listening process on a port.
@@ -76,14 +78,41 @@ func GetListeningPorts() ([]Process, error) {
 	return processes, nil
 }
 
-// Kill sends SIGKILL to the process with the given PID.
+// Kill sends SIGTERM to the process, waits up to 1s for it to exit,
+// then sends SIGKILL if still alive.
 func Kill(pid int) error {
 	proc, err := os.FindProcess(pid)
 	if err != nil {
 		return fmt.Errorf("could not find process %d: %v", pid, err)
 	}
+
+	// Try graceful termination first.
+	if err := proc.Signal(syscall.SIGTERM); err != nil {
+		return wrapKillError(pid, err)
+	}
+
+	// Poll for exit up to 1 second.
+	for i := 0; i < 10; i++ {
+		time.Sleep(100 * time.Millisecond)
+		if err := proc.Signal(syscall.Signal(0)); err != nil {
+			return nil // process exited
+		}
+	}
+
+	// Still alive — force kill.
 	if err := proc.Signal(syscall.SIGKILL); err != nil {
-		return fmt.Errorf("kill failed: %v", err)
+		// If signal(0) also fails, the process already exited between our check and SIGKILL.
+		if checkErr := proc.Signal(syscall.Signal(0)); checkErr != nil {
+			return nil
+		}
+		return wrapKillError(pid, err)
 	}
 	return nil
+}
+
+func wrapKillError(pid int, err error) error {
+	if errors.Is(err, os.ErrPermission) || strings.Contains(err.Error(), "operation not permitted") {
+		return fmt.Errorf("permission denied for PID %d — try running with sudo", pid)
+	}
+	return fmt.Errorf("kill failed for PID %d: %v", pid, err)
 }

@@ -44,7 +44,7 @@ func (m model) View() string {
 
 	base := top + "\n" + helpBar
 
-	if m.confirming && m.selected != nil && m.width > 0 {
+	if m.confirming && (m.selected != nil || len(m.selectedPIDs) > 0) && m.width > 0 {
 		dialog := m.renderDialog()
 		dw := lipgloss.Width(dialog)
 		dh := strings.Count(dialog, "\n") + 1
@@ -62,9 +62,16 @@ func (m model) View() string {
 }
 
 func (m model) renderDialog() string {
-	question := m.styles.DialogBody.Render(
-		fmt.Sprintf("Kill %s (%s) on :%s?", m.selected[1], m.selected[0], m.selected[5]),
-	)
+	var question string
+	if len(m.selectedPIDs) > 0 {
+		question = m.styles.DialogBody.Render(
+			fmt.Sprintf("Kill %d selected process(es)?", len(m.selectedPIDs)),
+		)
+	} else {
+		question = m.styles.DialogBody.Render(
+			fmt.Sprintf("Kill %s (PID %d) on :%s?", m.selected.Name, m.selected.PID, m.selected.Port),
+		)
+	}
 	hints := m.styles.Yes.Render("[y] Yes") + "   " + m.styles.No.Render("[N] No")
 	return m.styles.DialogBox.Render(question + "\n\n" + hints)
 }
@@ -73,6 +80,7 @@ func (m model) renderHelpBar() string {
 	type binding struct{ key, desc string }
 	bindings := []binding{
 		{"↑/↓", "Navigate"},
+		{"Space", "Select"},
 		{"Enter/k", "Kill"},
 		{"r", "Refresh"},
 		{"a", "Auto-refresh"},

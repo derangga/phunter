@@ -10,6 +10,7 @@ import (
 )
 
 func main() {
+	theme.EnsureConfig()
 	t := theme.Load()
 	p := tea.NewProgram(tui.New(t), tea.WithAltScreen())
 	if _, err := p.Run(); err != nil {
