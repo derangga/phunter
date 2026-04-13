@@ -6,14 +6,21 @@
     flake-utils.url = "github:numtide/flake-utils";
   };
 
-  outputs = { self, nixpkgs, flake-utils }:
-    flake-utils.lib.eachDefaultSystem (system:
+  outputs =
+    {
+      self,
+      nixpkgs,
+      flake-utils,
+    }:
+    flake-utils.lib.eachDefaultSystem (
+      system:
       let
         pkgs = nixpkgs.legacyPackages.${system};
-      in {
+      in
+      {
         packages.default = pkgs.buildGoModule {
           pname = "phunter";
-          version = "0.1.0";
+          version = "0.2.2";
           src = ./.;
 
           # Run `nix build` once with the placeholder below — it will fail and
