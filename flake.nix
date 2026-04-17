@@ -16,11 +16,12 @@
       system:
       let
         pkgs = nixpkgs.legacyPackages.${system};
+        version = "0.2.3";
       in
       {
         packages.default = pkgs.buildGoModule {
           pname = "phunter";
-          version = "0.2.2";
+          inherit version;
           src = ./.;
 
           # Run `nix build` once with the placeholder below — it will fail and
@@ -28,6 +29,12 @@
           vendorHash = "sha256-FwfpQvOVHmeS4KQuMhOUX/Hc4GDunG+fsT2ZMwLIJUo=";
 
           env.CGO_ENABLED = "0";
+
+          ldflags = [
+            "-s"
+            "-w"
+            "-X main.version=${version}"
+          ];
 
           meta = with pkgs.lib; {
             description = "Terminal UI for hunting and killing processes listening on TCP ports";
