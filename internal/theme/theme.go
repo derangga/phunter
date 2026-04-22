@@ -66,7 +66,7 @@ status_pid_fg       = "#f5a97b"   # Peach
 confirm_bar_bg      = "#ed8796"   # Red — background for kill confirm footer
 confirm_bar_fg      = "#24273a"   # Base — foreground for kill confirm
 confirm_chip_bg     = "#24273a"   # Base — inverted chip background
-confirm_chip_fg     = "#ed8796"   # Red — inverted chip foreground
+confirm_chip_fg     = "#a6da95"   # Red — inverted chip foreground
 
 # Row selection
 row_selected_bar    = "#8aadf4"   # accent — left rail color
@@ -185,7 +185,7 @@ func DefaultTheme() Theme {
 		ConfirmBarBg:       "#ed8796",
 		ConfirmBarFg:       "#24273a",
 		ConfirmChipBg:      "#24273a",
-		ConfirmChipFg:      "#ed8796",
+		ConfirmChipFg:      "#a6da95",
 		RowSelectedBar:     "#8aadf4",
 		HeaderFg:           "#cad3f5",
 		HeaderDimFg:        "#6e738d",

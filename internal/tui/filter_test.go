@@ -32,13 +32,6 @@ func TestApplyFilterAndSort(t *testing.T) {
 		}
 	})
 
-	t.Run("name filter matches user", func(t *testing.T) {
-		result := applyFilterAndSort(procs, "root", "", SortPID, true)
-		if len(result) != 2 {
-			t.Errorf("user filter expected 2, got %d", len(result))
-		}
-	})
-
 	t.Run("name filter case insensitive", func(t *testing.T) {
 		result := applyFilterAndSort(procs, "NGINX", "", SortPID, true)
 		if len(result) != 1 {

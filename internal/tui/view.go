@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"strconv"
 	"strings"
-	"time"
 
 	"github.com/charmbracelet/bubbles/table"
 	"github.com/charmbracelet/lipgloss"
@@ -77,7 +76,7 @@ func (m model) View() string {
 
 // renderHeader renders: ◉ PortHunter  v0.3.0    listening N/M processes  │  ● auto  HH:MM:SS
 func (m model) renderHeader() string {
-	left := m.styles.HeaderAccent.Render("◉") + " " +
+	left := m.styles.HeaderAccent.Render(" ◉") + " " +
 		m.styles.HeaderTitle.Render("PortHunter") + "  " +
 		m.styles.HeaderDim.Render(m.version)
 
@@ -94,11 +93,9 @@ func (m model) renderHeader() string {
 		autoStr = m.styles.AutoRefreshOff.Render("○ auto")
 	}
 
-	clock := m.styles.HeaderDim.Render(time.Now().Format("15:04:05"))
-
 	right := countStr + "  " +
 		m.styles.HeaderDim.Render("│") + "  " +
-		autoStr + "  " + clock
+		autoStr + "  "
 
 	leftW := lipgloss.Width(left)
 	rightW := lipgloss.Width(right)
@@ -170,8 +167,6 @@ func (m model) buildRow(p process.Process) table.Row {
 		p.Port,
 	}
 }
-
-
 
 // renderStatusLine renders the status line between table and footer.
 func (m model) renderStatusLine() string {

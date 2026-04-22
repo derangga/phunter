@@ -16,8 +16,7 @@ func applyFilterAndSort(all []process.Process, nameFilter, portFilter string, ke
 	out := make([]process.Process, 0, len(all))
 	for _, p := range all {
 		if nameFilter != "" {
-			if !strings.Contains(strings.ToLower(p.Name), nameFilter) &&
-				!strings.Contains(strings.ToLower(p.User), nameFilter) {
+			if !strings.Contains(strings.ToLower(p.Name), nameFilter) {
 				continue
 			}
 		}
@@ -44,8 +43,6 @@ func lessProc(a, b process.Process, key SortKey) bool {
 		return a.PID < b.PID
 	case SortProcess:
 		return strings.ToLower(a.Name) < strings.ToLower(b.Name)
-	case SortUser:
-		return strings.ToLower(a.User) < strings.ToLower(b.User)
 	case SortType:
 		return a.Type < b.Type
 	case SortPort:

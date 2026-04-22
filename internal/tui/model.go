@@ -37,7 +37,6 @@ type SortKey int
 const (
 	SortPID SortKey = iota
 	SortProcess
-	SortUser
 	SortType
 	SortPort
 )
@@ -48,8 +47,6 @@ func (k SortKey) String() string {
 		return "pid"
 	case SortProcess:
 		return "process"
-	case SortUser:
-		return "user"
 	case SortType:
 		return "type"
 	case SortPort:
@@ -131,7 +128,7 @@ func New(cfg theme.Config, version string) model {
 	t.SetStyles(styles.Table)
 
 	ni := textinput.New()
-	ni.Placeholder = "filter by name or user..."
+	ni.Placeholder = "filter by name..."
 	ni.CharLimit = 64
 
 	pi := textinput.New()
@@ -455,14 +452,11 @@ func (m *model) recompute() {
 }
 
 func (m *model) cycleSort() {
-	nextKey := SortKey((int(m.sortKey) + 1) % 5)
-	if nextKey == SortPID && m.sortKey == SortPort {
-		// Wrapped around — flip direction instead of advancing
+	nextKey := SortKey((int(m.sortKey) + 1) % 4)
+	if nextKey == SortPID {
 		m.sortAsc = !m.sortAsc
-	} else {
-		m.sortKey = nextKey
-		m.sortAsc = true
 	}
+	m.sortKey = nextKey
 }
 
 func (m *model) viewHeight() int {
@@ -498,7 +492,6 @@ func (m *model) sortedColumns(nameW int) []table.Column {
 	sortColIdx := map[SortKey]int{
 		SortPID:     1,
 		SortProcess: 2,
-		SortUser:    3,
 		SortType:    4,
 		SortPort:    6,
 	}
