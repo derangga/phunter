@@ -37,21 +37,3 @@ func TestClassify(t *testing.T) {
 	}
 }
 
-func TestGlyph(t *testing.T) {
-	tests := []struct {
-		class Class
-		want  string
-	}{
-		{ClassPrivileged, "◆"},
-		{ClassDev, "●"},
-		{ClassRegistered, "○"},
-		{ClassEphemeral, "·"},
-		{ClassAny, "·"},
-	}
-	for _, tt := range tests {
-		got := tt.class.Glyph()
-		if got != tt.want {
-			t.Errorf("Class(%d).Glyph() = %q, want %q", tt.class, got, tt.want)
-		}
-	}
-}

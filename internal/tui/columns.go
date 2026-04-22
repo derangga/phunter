@@ -1,5 +1,7 @@
 package tui
 
+import "github.com/charmbracelet/bubbles/table"
+
 const (
 	colGlyph = 2  // port class glyph + space
 	colPID   = 7
@@ -10,5 +12,14 @@ const (
 	// colName is computed dynamically from terminal width
 )
 
-// columnTitles maps SortKey to column header text (ALL-CAPS).
-var columnTitles = [5]string{"PID", "PROCESS", "USER", "TYPE", "PORT"}
+func tableColumns(nameW int) []table.Column {
+	return []table.Column{
+		{Title: " ", Width: colGlyph},
+		{Title: "PID", Width: colPID},
+		{Title: "PROCESS", Width: nameW},
+		{Title: "USER", Width: colUser},
+		{Title: "TYPE", Width: colType},
+		{Title: "ADDRESS", Width: colAddr},
+		{Title: "PORT", Width: colPort},
+	}
+}

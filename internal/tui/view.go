@@ -6,6 +6,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/charmbracelet/bubbles/table"
 	"github.com/charmbracelet/lipgloss"
 
 	"phunter/internal/overlay"
@@ -28,20 +29,17 @@ func (m model) View() string {
 		sections = append(sections, m.renderFilterBar())
 	}
 
-	// 3. Table header
-	sections = append(sections, m.renderTableHeader())
+	// 3. Table (header + rows via bubbles table)
+	sections = append(sections, m.table.View())
 
-	// 4. Table rows
-	tableContent := m.renderTableRows()
-
-	// 5. Status line
+	// 4. Status line
 	statusLine := m.renderStatusLine()
 
-	// 6. Footer (always help bar)
+	// 5. Footer help bar
 	footer := m.renderHelpBar()
 
 	// Calculate gap to push status + footer to bottom
-	topContent := strings.Join(sections, "\n") + "\n" + tableContent
+	topContent := strings.Join(sections, "\n")
 	topLines := strings.Count(topContent, "\n") + 1
 	statusLines := 1
 	footerLines := strings.Count(footer, "\n") + 1
@@ -54,7 +52,7 @@ func (m model) View() string {
 
 	output := topContent + "\n" + statusLine + "\n" + footer
 
-	// 7. Kill confirmation overlay
+	// 6. Kill confirmation overlay
 	if m.mode == ModeConfirmKill {
 		dialog := m.renderKillDialog()
 		dialogW := lipgloss.Width(dialog)
@@ -62,6 +60,16 @@ func (m model) View() string {
 		x := (m.width - dialogW) / 2
 		y := (m.height - dialogH) / 2
 		output = overlay.Place(x, y, dialog, output)
+	}
+
+	// 7. Help overlay
+	if m.showHelp {
+		help := m.renderHelpOverlay()
+		helpW := lipgloss.Width(help)
+		helpH := strings.Count(help, "\n") + 1
+		x := (m.width - helpW) / 2
+		y := (m.height - helpH) / 2
+		output = overlay.Place(x, y, help, output)
 	}
 
 	return output
@@ -92,7 +100,6 @@ func (m model) renderHeader() string {
 		m.styles.HeaderDim.Render("│") + "  " +
 		autoStr + "  " + clock
 
-	// Pad middle to fill width
 	leftW := lipgloss.Width(left)
 	rightW := lipgloss.Width(right)
 	gap := max(m.width-leftW-rightW, 2)
@@ -120,12 +127,8 @@ func (m model) renderFilterBar() string {
 		inputView = m.portInput.View()
 	}
 
-	// border + padding
 	innerW := max(m.width-6, 20)
-
 	pillsW := lipgloss.Width(pills)
-
-	// separator spacing
 	inputW := max(innerW-pillsW-3, 10)
 	m.nameInput.Width = inputW
 	m.portInput.Width = inputW
@@ -136,149 +139,39 @@ func (m model) renderFilterBar() string {
 	return bar
 }
 
-// renderTableHeader renders ALL-CAPS column headers with sort indicator.
-func (m model) renderTableHeader() string {
-	nameW := m.nameColWidth()
-
-	type col struct {
-		title string
-		width int
-		key   SortKey
+// buildRows builds the table rows with plain text (no ANSI styling).
+func (m model) buildRows() []table.Row {
+	rows := make([]table.Row, len(m.viewProcs))
+	for i, p := range m.viewProcs {
+		rows[i] = m.buildRow(p)
 	}
-
-	cols := []col{
-		{"PID", colPID, SortPID},
-		{"PROCESS", nameW, SortProcess},
-		{"USER", colUser, SortUser},
-		{"TYPE", colType, SortType},
-		{"ADDRESS", colAddr, -1}, // not sortable, no SortKey
-		{"PORT", colPort, SortPort},
-	}
-
-	var parts []string
-	// Glyph column spacer
-	parts = append(parts, strings.Repeat(" ", colGlyph))
-
-	for _, c := range cols {
-		title := c.title
-		style := m.styles.TableHeaderDim
-
-		if c.key >= 0 && c.key == m.sortKey {
-			arrow := " ↑"
-			if !m.sortAsc {
-				arrow = " ↓"
-			}
-			title += arrow
-			style = m.styles.TableHeaderActive
-		}
-
-		rendered := style.Render(padOrTruncate(title, c.width))
-		parts = append(parts, rendered)
-	}
-
-	header := strings.Join(parts, " ")
-
-	// Border line under header
-	border := m.styles.TableHeaderBorder.Render(strings.Repeat("─", m.width))
-
-	return header + "\n" + border
+	return rows
 }
 
-// renderTableRows renders the visible rows.
-func (m model) renderTableRows() string {
-	if len(m.viewProcs) == 0 {
-		if m.nameInput.Value() != "" || m.portInput.Value() != "" {
-			return m.styles.EmptyState.Render("no matches. press esc to clear filter.")
-		}
-		return m.styles.EmptyState.Render("no listening processes found.")
-	}
-
-	vh := m.viewHeight()
-	end := min(m.offset+vh, len(m.viewProcs))
-
-	nameW := m.nameColWidth()
-	nameFilter := m.nameInput.Value()
-	portFilter := m.portInput.Value()
-
-	var rows []string
-	for i := m.offset; i < end; i++ {
-		p := m.viewProcs[i]
-		isSelected := i == m.cursor
-
-		row := m.renderRow(p, isSelected, nameW, nameFilter, portFilter)
-		rows = append(rows, row)
-	}
-
-	return strings.Join(rows, "\n")
-}
-
-func (m model) renderRow(p process.Process, selected bool, nameW int, nameFilter, portFilter string) string {
-	portNum, _ := strconv.Atoi(p.Port)
-	class := ports.Classify(portNum)
-
-	// Glyph column
-	glyphStyle := m.portClassStyle(class)
-	var glyph string
-	if selected && m.selStyle == "bar" {
-		glyph = m.styles.RowSelectedBar.Render("▎") + glyphStyle.Render(class.Glyph())
+func (m model) buildRow(p process.Process) table.Row {
+	// Glyph cell: ● if multi-selected, else port class glyph (plain text only)
+	var selectedCell string
+	if m.selectedPIDs[p.PID] {
+		selectedCell = "●"
 	} else {
-		glyph = " " + glyphStyle.Render(class.Glyph())
+		selectedCell = ""
 	}
 
-	// Build cell values
-	pidStr := padOrTruncate(strconv.Itoa(p.PID), colPID)
-	nameStr := padOrTruncate(p.Name, nameW)
-	userStr := padOrTruncate(p.User, colUser)
-	typeStr := padOrTruncate(p.Type, colType)
-	addrStr := padOrTruncate(p.Address, colAddr)
-	portStr := padOrTruncate(p.Port, colPort)
+	// Process cell: ● prefix if multi-selected
+	nameCell := p.Name
 
-	// Apply TYPE column coloring (IPv4 = sapphire, IPv6 = mauve)
-	if strings.Contains(p.Type, "6") {
-		typeStr = m.styles.TypeIPv6.Render(typeStr)
-	} else {
-		typeStr = m.styles.TypeIPv4.Render(typeStr)
+	return table.Row{
+		selectedCell,
+		strconv.Itoa(p.PID),
+		nameCell,
+		p.User,
+		p.Type,
+		p.Address,
+		p.Port,
 	}
-
-	// Apply highlighting
-	if nameFilter != "" {
-		nameStr = m.highlightCell(padOrTruncate(p.Name, nameW), nameFilter, nameW)
-		userStr = m.highlightCell(padOrTruncate(p.User, colUser), nameFilter, colUser)
-	}
-	if portFilter != "" {
-		portStr = m.highlightCell(padOrTruncate(p.Port, colPort), portFilter, colPort)
-	}
-
-	// Bold selected process name
-	if selected {
-		nameStr = lipgloss.NewStyle().Bold(true).Render(nameStr)
-	}
-
-	// Port number gets class color
-	if portFilter == "" {
-		portStr = glyphStyle.Render(padOrTruncate(p.Port, colPort))
-	}
-
-	cells := glyph + " " + pidStr + " " + nameStr + " " + userStr + " " + typeStr + " " + addrStr + " " + portStr
-
-	// Apply row-level style
-	if selected {
-		if m.selStyle == "block" {
-			return m.styles.RowSelectedBlock.Width(m.width).Render(cells)
-		}
-		return m.styles.RowSelected.Width(m.width).Render(cells)
-	}
-	return m.styles.RowNormal.Width(m.width).Render(cells)
 }
 
-func (m model) highlightCell(text, filter string, width int) string {
-	before, match, after := highlightMatch(text, filter)
-	if match == "" {
-		return text
-	}
-	result := before + m.styles.MatchHighlight.Render(match) + after
-	return result
-}
+
 
 // renderStatusLine renders the status line between table and footer.
 func (m model) renderStatusLine() string {
@@ -334,7 +227,6 @@ func (m model) renderStatusLine() string {
 
 	right := strings.Join(rightParts, "  "+m.styles.StatusDim.Render("·")+"  ")
 
-	// Account for 1-char padding on each side
 	innerW := m.width - 2
 	leftW := lipgloss.Width(left)
 	rightW := lipgloss.Width(right)
@@ -344,7 +236,7 @@ func (m model) renderStatusLine() string {
 	return m.styles.StatusBar.Width(m.width).Render(line)
 }
 
-// renderHelpBar renders the context-sensitive keybind footer.
+// renderHelpBar renders the slim footer with only the most important keys.
 func (m model) renderHelpBar() string {
 	type binding struct{ key, desc string }
 
@@ -359,17 +251,13 @@ func (m model) renderHelpBar() string {
 	default:
 		bindings = []binding{
 			{"↑↓", "nav"},
-			{"/", "filter"},
-			{"s", "sort"},
-			{"⏎", "kill"},
-			{"r", "refresh"},
+			{"Space", "select"},
 			{"a", "auto"},
-			{"g/G", "top/end"},
-			{"q", "quit"},
+			{"⏎", "kill"},
+			{"?", "help"},
 		}
 	}
 
-	// Build chips: key chip (surface0 bg + lavender fg) + label (overlay1 fg)
 	var chips []string
 	for _, b := range bindings {
 		chips = append(chips,
@@ -377,7 +265,7 @@ func (m model) renderHelpBar() string {
 		)
 	}
 
-	// Width-aware wrapping: greedy line-break
+	// Width-aware wrapping
 	var lines []string
 	var currentLine string
 	for i, chip := range chips {
@@ -402,62 +290,62 @@ func (m model) renderHelpBar() string {
 		lines = append(lines, currentLine)
 	}
 
-	// Top border + bar (no solid background — transparent)
 	border := m.styles.TableHeaderBorder.Render(strings.Repeat("─", m.width))
 	return border + "\n" + strings.Join(lines, "\n")
 }
 
-// renderConfirmBar renders the kill confirmation footer.
-func (m model) renderConfirmBar() string {
-	question := m.styles.ConfirmBar.Render(
-		fmt.Sprintf("▲  Kill process %d?", m.killTarget))
-	yes := m.styles.ConfirmYes.Render("[y] yes")
-	no := m.styles.ConfirmNo.Render("[n] cancel")
-
-	right := yes + "  " + no
-	leftW := lipgloss.Width(question)
-	rightW := lipgloss.Width(right)
-	gap := max(m.width-leftW-rightW, 2)
-
-	bar := question + m.styles.ConfirmBar.Render(strings.Repeat(" ", gap)) + right
-	barW := lipgloss.Width(bar)
-	if m.width > barW {
-		bar += m.styles.ConfirmBar.Render(strings.Repeat(" ", m.width-barW))
-	}
-
-	border := m.styles.TableHeaderBorder.Render(strings.Repeat("─", m.width))
-	return border + "\n" + bar
-}
-
 // renderKillDialog renders a centered overlay dialog for kill confirmation.
 func (m model) renderKillDialog() string {
-	// Find the target process name
-	name := "?"
-	for _, p := range m.viewProcs {
-		if p.PID == m.killTarget {
-			name = p.Name
-			break
+	var question string
+	if len(m.selectedPIDs) > 0 {
+		question = m.styles.DialogBody.Render(
+			fmt.Sprintf("Kill %d selected process(es)?", len(m.selectedPIDs)))
+	} else {
+		name := "?"
+		for _, p := range m.viewProcs {
+			if p.PID == m.killTarget {
+				name = p.Name
+				break
+			}
 		}
+		question = m.styles.DialogBody.Render(
+			fmt.Sprintf("Kill %s (PID %d)?", name, m.killTarget))
 	}
-
-	question := m.styles.DialogBody.Render(
-		fmt.Sprintf("Kill %s (PID %d)?", name, m.killTarget))
 
 	yes := m.styles.ConfirmYes.Render("[y] yes")
 	no := m.styles.ConfirmNo.Render("[n] cancel")
 
-	buttons := yes + "  " + no
-	content := question + "\n\n" + buttons
-
+	content := question + "\n\n" + yes + "  " + no
 	return m.styles.DialogBox.Render(content)
 }
 
-// Helper functions
+// renderHelpOverlay renders a floating overlay showing all keybindings.
+func (m model) renderHelpOverlay() string {
+	title := m.styles.HeaderTitle.Render("Keybindings")
 
-func (m model) nameColWidth() int {
-	fixed := colGlyph + colPID + colUser + colType + colAddr + colPort + 7 // 7 separators
-	w := max(m.width-fixed, 12)
-	return w
+	type binding struct{ key, desc string }
+	bindings := []binding{
+		{"↑ / ↓", "navigate"},
+		{"Space", "select / deselect"},
+		{"Enter / k", "kill selected"},
+		{"/", "open filter"},
+		{"s", "cycle sort"},
+		{"r", "refresh"},
+		{"a", "toggle auto-refresh"},
+		{"?", "toggle this help"},
+		{"q", "quit"},
+	}
+
+	var lines []string
+	keyStyle := m.styles.FooterKey
+	descStyle := m.styles.FooterLabel
+	for _, b := range bindings {
+		line := keyStyle.Render(b.key) + "  " + descStyle.Render(b.desc)
+		lines = append(lines, line)
+	}
+
+	content := title + "\n\n" + strings.Join(lines, "\n")
+	return m.styles.HelpOverlay.Render(content)
 }
 
 func (m model) portClassStyle(c ports.Class) lipgloss.Style {
@@ -474,18 +362,4 @@ func (m model) portClassStyle(c ports.Class) lipgloss.Style {
 		return m.styles.PortAny
 	}
 	return m.styles.PortAny
-}
-
-func padOrTruncate(s string, width int) string {
-	if width <= 0 {
-		return ""
-	}
-	runes := []rune(s)
-	if len(runes) > width {
-		if width > 1 {
-			return string(runes[:width-1]) + "…"
-		}
-		return string(runes[:width])
-	}
-	return s + strings.Repeat(" ", width-len(runes))
 }

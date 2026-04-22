@@ -38,21 +38,6 @@ func Classify(p int) Class {
 	return ClassEphemeral
 }
 
-// Glyph returns the single-character glyph for this port class.
-func (c Class) Glyph() string {
-	switch c {
-	case ClassPrivileged:
-		return "◆"
-	case ClassDev:
-		return "●"
-	case ClassRegistered:
-		return "○"
-	case ClassAny, ClassEphemeral:
-		return "·"
-	}
-	return "·"
-}
-
 // Color returns the lipgloss.Color for this port class using theme color strings.
 func (c Class) Color(privileged, dev, registered, ephemeral, any string) lipgloss.Color {
 	switch c {

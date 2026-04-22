@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/charmbracelet/bubbles/table"
 	"github.com/charmbracelet/bubbles/textinput"
 	tea "github.com/charmbracelet/bubbletea"
 
@@ -79,16 +80,23 @@ type killDoneMsg struct {
 	pid int
 }
 
+type batchKillMsg struct {
+	killed int
+	errors []string
+}
+
 type model struct {
-	styles    Styles
-	theme     theme.Theme
-	selStyle  string // "bar" or "block"
-	version   string
+	table    table.Model
+	styles   Styles
+	theme    theme.Theme
+	selStyle string // "bar" or "block"
+	version  string
 
 	allProcs  []process.Process // full snapshot
 	viewProcs []process.Process // filtered + sorted
-	cursor    int               // index into viewProcs
-	offset    int               // first visible row
+
+	selectedPIDs map[int]bool // multi-select
+	showHelp     bool         // floating help overlay
 
 	mode        Mode
 	filterField FilterField
@@ -102,7 +110,7 @@ type model struct {
 	lastRefresh time.Time
 	nextTickIn  int // seconds remaining
 
-	killTarget int  // PID being confirmed
+	killTarget int // PID being confirmed (-1 for batch)
 	toast      string
 	toastUntil time.Time
 
@@ -114,6 +122,13 @@ type model struct {
 // New creates and returns the initial TUI model.
 func New(cfg theme.Config, version string) model {
 	styles := NewStyles(cfg.Theme)
+
+	t := table.New(
+		table.WithColumns(tableColumns(20)),
+		table.WithFocused(true),
+		table.WithHeight(20),
+	)
+	t.SetStyles(styles.Table)
 
 	ni := textinput.New()
 	ni.Placeholder = "filter by name or user..."
@@ -132,14 +147,16 @@ func New(cfg theme.Config, version string) model {
 	}
 
 	return model{
-		styles:    styles,
-		theme:     cfg.Theme,
-		selStyle:  cfg.SelectionStyle,
-		version:   version,
-		nameInput: ni,
-		portInput: pi,
-		sortKey:   SortPID,
-		sortAsc:   true,
+		table:        t,
+		styles:       styles,
+		theme:        cfg.Theme,
+		selStyle:     cfg.SelectionStyle,
+		version:      version,
+		selectedPIDs: make(map[int]bool),
+		nameInput:    ni,
+		portInput:    pi,
+		sortKey:      SortPID,
+		sortAsc:      true,
 	}
 }
 
@@ -172,6 +189,9 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case tea.WindowSizeMsg:
 		m.width = msg.Width
 		m.height = msg.Height
+		nameW := m.nameColWidth()
+		m.table.SetColumns(m.sortedColumns(nameW))
+		m.table.SetHeight(m.viewHeight())
 		return m, nil
 
 	case tickMsg:
@@ -205,6 +225,16 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	case killDoneMsg:
 		return m, nil
+
+	case batchKillMsg:
+		m.selectedPIDs = make(map[int]bool)
+		if len(msg.errors) > 0 {
+			m.toast = fmt.Sprintf("killed %d, %d failed: %s", msg.killed, len(msg.errors), msg.errors[0])
+		} else {
+			m.toast = fmt.Sprintf("killed %d process(es)", msg.killed)
+		}
+		m.toastUntil = time.Now().Add(3 * time.Second)
+		return m, refreshCmd()
 
 	case clearToastMsg:
 		m.toast = ""
@@ -241,44 +271,61 @@ func (m *model) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 }
 
 func (m *model) handleNormalKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
+	// Any key dismisses the help overlay first
+	if m.showHelp {
+		m.showHelp = false
+		return m, nil
+	}
+
 	key := msg.String()
 	switch key {
 	case "q", "ctrl+c":
 		m.quitting = true
 		return m, tea.Quit
-	case "up":
-		m.moveCursor(-1)
+	case "?":
+		m.showHelp = true
 		return m, nil
-	case "down":
-		m.moveCursor(1)
-		return m, nil
-	case "g":
-		m.cursor = 0
-		m.offset = 0
-		return m, nil
-	case "G":
-		if len(m.viewProcs) > 0 {
-			m.cursor = len(m.viewProcs) - 1
-			vh := m.viewHeight()
-			if m.cursor >= vh {
-				m.offset = m.cursor - vh + 1
-			}
+	case " ":
+		if len(m.viewProcs) == 0 {
+			return m, nil
 		}
+		cursor := m.table.Cursor()
+		if cursor < 0 || cursor >= len(m.viewProcs) {
+			return m, nil
+		}
+		pid := m.viewProcs[cursor].PID
+		if m.selectedPIDs[pid] {
+			delete(m.selectedPIDs, pid)
+		} else {
+			m.selectedPIDs[pid] = true
+		}
+		m.table.SetRows(m.buildRows())
 		return m, nil
 	case "/":
 		m.mode = ModeFilter
 		m.nameInput.Focus()
 		m.filterField = FilterName
+		m.table.SetHeight(m.viewHeight())
 		return m, nil
 	case "s":
 		m.cycleSort()
 		m.recompute()
 		return m, nil
 	case "enter", "k":
-		if len(m.viewProcs) == 0 || m.cursor >= len(m.viewProcs) {
+		if len(m.viewProcs) == 0 {
 			return m, nil
 		}
-		m.killTarget = m.viewProcs[m.cursor].PID
+		if len(m.selectedPIDs) > 0 {
+			// Batch kill mode
+			m.killTarget = -1
+			m.mode = ModeConfirmKill
+			return m, nil
+		}
+		cursor := m.table.Cursor()
+		if cursor < 0 || cursor >= len(m.viewProcs) {
+			return m, nil
+		}
+		m.killTarget = m.viewProcs[cursor].PID
 		m.mode = ModeConfirmKill
 		return m, nil
 	case "r":
@@ -293,7 +340,11 @@ func (m *model) handleNormalKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		}
 		return m, nil
 	}
-	return m, nil
+
+	// Delegate navigation to the table
+	var cmd tea.Cmd
+	m.table, cmd = m.table.Update(msg)
+	return m, cmd
 }
 
 func (m *model) handleFilterKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
@@ -306,6 +357,7 @@ func (m *model) handleFilterKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		m.nameInput.Blur()
 		m.portInput.Blur()
 		m.recompute()
+		m.table.SetHeight(m.viewHeight())
 		return m, nil
 	case "tab":
 		if m.filterField == FilterName {
@@ -323,6 +375,7 @@ func (m *model) handleFilterKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		m.nameInput.Blur()
 		m.portInput.Blur()
 		m.recompute()
+		m.table.SetHeight(m.viewHeight())
 		return m, nil
 	}
 
@@ -341,7 +394,16 @@ func (m *model) handleConfirmKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	switch msg.String() {
 	case "y":
 		m.mode = ModeNormal
-		// Find the process to kill
+		if len(m.selectedPIDs) > 0 {
+			var targets []process.Process
+			for _, p := range m.allProcs {
+				if m.selectedPIDs[p.PID] {
+					targets = append(targets, p)
+				}
+			}
+			return m, batchKillCmd(targets)
+		}
+		// Single kill
 		for _, p := range m.allProcs {
 			if p.PID == m.killTarget {
 				return m, killCmd(p)
@@ -362,6 +424,21 @@ func killCmd(p process.Process) tea.Cmd {
 	}
 }
 
+func batchKillCmd(procs []process.Process) tea.Cmd {
+	return func() tea.Msg {
+		var killed int
+		var errs []string
+		for _, p := range procs {
+			if err := process.Kill(p.PID); err != nil {
+				errs = append(errs, err.Error())
+			} else {
+				killed++
+			}
+		}
+		return batchKillMsg{killed: killed, errors: errs}
+	}
+}
+
 func (m *model) recompute() {
 	m.viewProcs = applyFilterAndSort(
 		m.allProcs,
@@ -370,45 +447,11 @@ func (m *model) recompute() {
 		m.sortKey,
 		m.sortAsc,
 	)
-	// Clamp cursor
-	if len(m.viewProcs) == 0 {
-		m.cursor = 0
-		m.offset = 0
-	} else {
-		if m.cursor >= len(m.viewProcs) {
-			m.cursor = len(m.viewProcs) - 1
-		}
-		if m.cursor < 0 {
-			m.cursor = 0
-		}
-		vh := m.viewHeight()
-		if m.cursor < m.offset {
-			m.offset = m.cursor
-		}
-		if m.cursor >= m.offset+vh {
-			m.offset = m.cursor - vh + 1
-		}
-	}
-}
-
-func (m *model) moveCursor(delta int) {
-	if len(m.viewProcs) == 0 {
-		return
-	}
-	m.cursor += delta
-	if m.cursor < 0 {
-		m.cursor = 0
-	}
-	if m.cursor >= len(m.viewProcs) {
-		m.cursor = len(m.viewProcs) - 1
-	}
-	vh := m.viewHeight()
-	if m.cursor < m.offset {
-		m.offset = m.cursor
-	}
-	if m.cursor >= m.offset+vh {
-		m.offset = m.cursor - vh + 1
-	}
+	m.table.SetRows(m.buildRows())
+	// Update column titles to reflect sort state
+	nameW := m.nameColWidth()
+	m.table.SetColumns(m.sortedColumns(nameW))
+	m.table.SetHeight(m.viewHeight())
 }
 
 func (m *model) cycleSort() {
@@ -423,9 +466,10 @@ func (m *model) cycleSort() {
 }
 
 func (m *model) viewHeight() int {
-	// header(1) + header-border(1) + column-header(1) + status(1) + help(1) = 5
+	// app header(1) + status(1) + help bar border(1) + help bar content(1) = 4
 	// filter bar adds 3 when visible
-	overhead := 5
+	// The bubbles table handles its own header+border internally
+	overhead := 4
 	if m.mode == ModeFilter || m.nameInput.Value() != "" || m.portInput.Value() != "" {
 		overhead += 3
 	}
@@ -436,11 +480,44 @@ func (m *model) viewHeight() int {
 	return vh
 }
 
+func (m *model) nameColWidth() int {
+	// bubbles table adds Padding(0,1) per cell = 2 chars per column
+	// 7 columns × 2 = 14 chars of cell padding
+	fixed := colGlyph + colPID + colUser + colType + colAddr + colPort + 14
+	w := m.width - fixed
+	if w < 12 {
+		w = 12
+	}
+	return w
+}
+
+// sortedColumns returns tableColumns with the active sort column title annotated.
+func (m *model) sortedColumns(nameW int) []table.Column {
+	cols := tableColumns(nameW)
+	// Column indices (0=glyph, 1=PID, 2=PROCESS, 3=USER, 4=TYPE, 5=ADDRESS, 6=PORT)
+	sortColIdx := map[SortKey]int{
+		SortPID:     1,
+		SortProcess: 2,
+		SortUser:    3,
+		SortType:    4,
+		SortPort:    6,
+	}
+	arrow := " ↑"
+	if !m.sortAsc {
+		arrow = " ↓"
+	}
+	if idx, ok := sortColIdx[m.sortKey]; ok {
+		cols[idx].Title += arrow
+	}
+	return cols
+}
+
 // selectedProc returns the currently selected process, or nil if none.
 func (m *model) selectedProc() *process.Process {
-	if len(m.viewProcs) == 0 || m.cursor >= len(m.viewProcs) {
+	cursor := m.table.Cursor()
+	if len(m.viewProcs) == 0 || cursor < 0 || cursor >= len(m.viewProcs) {
 		return nil
 	}
-	p := m.viewProcs[m.cursor]
+	p := m.viewProcs[cursor]
 	return &p
 }

@@ -1,6 +1,7 @@
 package tui
 
 import (
+	"github.com/charmbracelet/bubbles/table"
 	"github.com/charmbracelet/lipgloss"
 
 	"phunter/internal/theme"
@@ -43,10 +44,10 @@ type Styles struct {
 	MatchHighlight    lipgloss.Style
 
 	// Status line
-	StatusBar   lipgloss.Style
-	StatusPid   lipgloss.Style
-	StatusText  lipgloss.Style
-	StatusDim   lipgloss.Style
+	StatusBar  lipgloss.Style
+	StatusPid  lipgloss.Style
+	StatusText lipgloss.Style
+	StatusDim  lipgloss.Style
 
 	// Help bar (legacy)
 	HelpBar  lipgloss.Style
@@ -58,28 +59,34 @@ type Styles struct {
 	FooterLabel lipgloss.Style
 
 	// Kill confirmation
-	ConfirmBar  lipgloss.Style
-	ConfirmYes  lipgloss.Style
-	ConfirmNo   lipgloss.Style
-	DialogBox   lipgloss.Style
-	DialogBody  lipgloss.Style
+	ConfirmBar lipgloss.Style
+	ConfirmYes lipgloss.Style
+	ConfirmNo  lipgloss.Style
+	DialogBox  lipgloss.Style
+	DialogBody lipgloss.Style
 
 	// Toast
 	ToastStyle lipgloss.Style
 
 	// Empty state
 	EmptyState lipgloss.Style
+
+	// Bubbles table
+	Table table.Styles
+
+	// Help overlay
+	HelpOverlay lipgloss.Style
 }
 
 func NewStyles(t theme.Theme) Styles {
-	accent := lipgloss.Color(t.Accent)
+	accent := lipgloss.Color(t.Title)
 	surface0 := lipgloss.Color(t.HelpBarBg)
 
 	s := Styles{
 		// Header
 		HeaderTitle: lipgloss.NewStyle().
 			Bold(true).
-			Foreground(lipgloss.Color(t.Title)),
+			Foreground(lipgloss.Color(t.Accent)),
 		HeaderDim: lipgloss.NewStyle().
 			Foreground(lipgloss.Color(t.HeaderDimFg)),
 		HeaderAccent: lipgloss.NewStyle().
@@ -212,7 +219,27 @@ func NewStyles(t theme.Theme) Styles {
 			Foreground(lipgloss.Color(t.HeaderDimFg)).
 			Italic(true).
 			Padding(1, 2),
+
+		// Help overlay
+		HelpOverlay: lipgloss.NewStyle().
+			Border(lipgloss.RoundedBorder()).
+			BorderForeground(lipgloss.Color(t.DialogBorder)).
+			Padding(1, 2),
 	}
+
+	// Bubbles table styles
+	ts := table.DefaultStyles()
+	ts.Header = ts.Header.
+		BorderStyle(lipgloss.NormalBorder()).
+		BorderForeground(lipgloss.Color(t.TableHeaderBorder)).
+		BorderBottom(true).
+		Bold(true).
+		Foreground(lipgloss.Color(t.HeaderDimFg))
+	ts.Selected = ts.Selected.
+		Foreground(lipgloss.Color(t.SelectedRowFg)).
+		Background(lipgloss.Color(t.SelectedRowBg)).
+		Bold(false)
+	s.Table = ts
 
 	return s
 }
