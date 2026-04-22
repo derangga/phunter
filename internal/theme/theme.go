@@ -14,6 +14,9 @@ const defaultConfig = `# phunter Theme Configuration
 # Edit colors using hex values (e.g. "#f5bde6")
 # Delete this file to regenerate with defaults.
 
+# Selection style: "bar" (left-rail accent) or "block" (full-width inverted row)
+# selection_style = "bar"
+
 [colors]
 title              = "#f5bde6"   # Pink
 status_text        = "#a5adcb"   # Subtext0
@@ -30,63 +33,196 @@ selected_row_fg    = "#181926"   # Crust
 selected_row_bg    = "#c6a0f6"   # Mauve
 auto_refresh_on    = "#a6da95"   # Green
 auto_refresh_off   = "#6e738d"   # Overlay0
+
+# --- New optional keys (v0.3.0+) ---
+
+# Accent color for filter bar focus, sort arrows, match highlights
+accent              = "#8aadf4"   # Blue
+
+# Filter bar
+filter_border       = "#363a4f"   # Surface0
+filter_label_fg     = "#a5adcb"   # Subtext0
+filter_placeholder  = "#6e738d"   # Overlay0
+filter_mode_active_bg = "#8aadf4" # accent
+filter_mode_active_fg = "#24273a" # Base
+filter_mode_idle_bg = "#363a4f"   # Surface0
+filter_mode_idle_fg = "#a5adcb"   # Subtext0
+match_highlight_bg  = "#8aadf4"   # accent
+match_highlight_fg  = "#24273a"   # Base
+
+# Sort arrow / active column header
+sort_active_fg      = "#8aadf4"   # accent
+
+# Port class glyphs
+port_privileged     = "#f5a97b"   # Peach
+port_dev            = "#a6da95"   # Green
+port_registered     = "#7dc4e4"   # Sapphire
+port_ephemeral      = "#6e738d"   # Overlay0
+port_any            = "#6e738d"   # Overlay0
+
+# Status line
+status_bar_bg       = "#1e2030"   # Mantle
+status_pid_fg       = "#f5a97b"   # Peach
+
+# Row selection
+row_selected_bar    = "#8aadf4"   # accent — left rail color
+
+# Header
+header_fg           = "#cad3f5"   # Text
+header_dim_fg       = "#6e738d"   # Overlay0
 `
 
 type Theme struct {
-	Title            string `toml:"title"`
-	StatusText       string `toml:"status_text"`
-	HelpBarBg        string `toml:"help_bar_bg"`
-	HelpBarFg        string `toml:"help_bar_fg"`
-	HelpKeyBg        string `toml:"help_key_bg"`
-	HelpKeyFg        string `toml:"help_key_fg"`
-	DialogBorder     string `toml:"dialog_border"`
-	DialogBody       string `toml:"dialog_body"`
-	YesButton        string `toml:"yes_button"`
-	NoButton         string `toml:"no_button"`
+	// Existing keys
+	Title             string `toml:"title"`
+	StatusText        string `toml:"status_text"`
+	HelpBarBg         string `toml:"help_bar_bg"`
+	HelpBarFg         string `toml:"help_bar_fg"`
+	HelpKeyBg         string `toml:"help_key_bg"`
+	HelpKeyFg         string `toml:"help_key_fg"`
+	DialogBorder      string `toml:"dialog_border"`
+	DialogBody        string `toml:"dialog_body"`
+	YesButton         string `toml:"yes_button"`
+	NoButton          string `toml:"no_button"`
 	TableHeaderBorder string `toml:"table_header_border"`
-	SelectedRowFg    string `toml:"selected_row_fg"`
-	SelectedRowBg    string `toml:"selected_row_bg"`
-	AutoRefreshOn    string `toml:"auto_refresh_on"`
-	AutoRefreshOff   string `toml:"auto_refresh_off"`
+	SelectedRowFg     string `toml:"selected_row_fg"`
+	SelectedRowBg     string `toml:"selected_row_bg"`
+	AutoRefreshOn     string `toml:"auto_refresh_on"`
+	AutoRefreshOff    string `toml:"auto_refresh_off"`
+
+	// New optional keys (v0.3.0+)
+	Accent            string `toml:"accent"`
+	FilterBorder      string `toml:"filter_border"`
+	FilterLabelFg     string `toml:"filter_label_fg"`
+	FilterPlaceholder string `toml:"filter_placeholder"`
+	FilterModeActiveBg string `toml:"filter_mode_active_bg"`
+	FilterModeActiveFg string `toml:"filter_mode_active_fg"`
+	FilterModeIdleBg  string `toml:"filter_mode_idle_bg"`
+	FilterModeIdleFg  string `toml:"filter_mode_idle_fg"`
+	MatchHighlightBg  string `toml:"match_highlight_bg"`
+	MatchHighlightFg  string `toml:"match_highlight_fg"`
+	SortActiveFg      string `toml:"sort_active_fg"`
+	PortPrivileged    string `toml:"port_privileged"`
+	PortDev           string `toml:"port_dev"`
+	PortRegistered    string `toml:"port_registered"`
+	PortEphemeral     string `toml:"port_ephemeral"`
+	PortAny           string `toml:"port_any"`
+	StatusBarBg       string `toml:"status_bar_bg"`
+	StatusPidFg       string `toml:"status_pid_fg"`
+	RowSelectedBar    string `toml:"row_selected_bar"`
+	HeaderFg          string `toml:"header_fg"`
+	HeaderDimFg       string `toml:"header_dim_fg"`
 }
 
 type configFile struct {
-	Colors Theme `toml:"colors"`
+	SelectionStyle string `toml:"selection_style"`
+	Colors         Theme  `toml:"colors"`
+}
+
+// Config holds the full parsed configuration including non-color settings.
+type Config struct {
+	Theme          Theme
+	SelectionStyle string // "bar" or "block"
 }
 
 func DefaultTheme() Theme {
 	return Theme{
-		Title:            "#f5bde6",
-		StatusText:       "#a5adcb",
-		HelpBarBg:        "#363a4f",
-		HelpBarFg:        "#b8c0e0",
-		HelpKeyBg:        "#c6a0f6",
-		HelpKeyFg:        "#181926",
-		DialogBorder:     "#c6a0f6",
-		DialogBody:       "#cad3f5",
-		YesButton:        "#a6da95",
-		NoButton:         "#8087a2",
+		Title:             "#f5bde6",
+		StatusText:        "#a5adcb",
+		HelpBarBg:         "#363a4f",
+		HelpBarFg:         "#b8c0e0",
+		HelpKeyBg:         "#c6a0f6",
+		HelpKeyFg:         "#181926",
+		DialogBorder:      "#c6a0f6",
+		DialogBody:        "#cad3f5",
+		YesButton:         "#a6da95",
+		NoButton:          "#8087a2",
 		TableHeaderBorder: "#494d64",
-		SelectedRowFg:    "#181926",
-		SelectedRowBg:    "#c6a0f6",
-		AutoRefreshOn:    "#a6da95",
-		AutoRefreshOff:   "#6e738d",
+		SelectedRowFg:     "#181926",
+		SelectedRowBg:     "#c6a0f6",
+		AutoRefreshOn:     "#a6da95",
+		AutoRefreshOff:    "#6e738d",
+		Accent:            "#8aadf4",
+		FilterBorder:      "#363a4f",
+		FilterLabelFg:     "#a5adcb",
+		FilterPlaceholder: "#6e738d",
+		FilterModeActiveBg: "#8aadf4",
+		FilterModeActiveFg: "#24273a",
+		FilterModeIdleBg:  "#363a4f",
+		FilterModeIdleFg:  "#a5adcb",
+		MatchHighlightBg:  "#8aadf4",
+		MatchHighlightFg:  "#24273a",
+		SortActiveFg:      "#8aadf4",
+		PortPrivileged:    "#f5a97b",
+		PortDev:           "#a6da95",
+		PortRegistered:    "#7dc4e4",
+		PortEphemeral:     "#6e738d",
+		PortAny:           "#6e738d",
+		StatusBarBg:       "#1e2030",
+		StatusPidFg:       "#f5a97b",
+		RowSelectedBar:    "#8aadf4",
+		HeaderFg:          "#cad3f5",
+		HeaderDimFg:       "#6e738d",
 	}
 }
 
+// resolve fills zero-value new fields with sensible fallbacks from existing keys.
+func (t *Theme) resolve() {
+	def := DefaultTheme()
+	fallback := func(val *string, primary, secondary string) {
+		if *val == "" {
+			if primary != "" {
+				*val = primary
+			} else {
+				*val = secondary
+			}
+		}
+	}
+
+	fallback(&t.Accent, t.HelpKeyBg, def.Accent)
+	fallback(&t.FilterBorder, t.TableHeaderBorder, def.FilterBorder)
+	fallback(&t.FilterLabelFg, t.StatusText, def.FilterLabelFg)
+	fallback(&t.FilterPlaceholder, "", def.FilterPlaceholder)
+	fallback(&t.FilterModeActiveBg, t.Accent, def.FilterModeActiveBg)
+	fallback(&t.FilterModeActiveFg, "", def.FilterModeActiveFg)
+	fallback(&t.FilterModeIdleBg, t.HelpBarBg, def.FilterModeIdleBg)
+	fallback(&t.FilterModeIdleFg, t.StatusText, def.FilterModeIdleFg)
+	fallback(&t.MatchHighlightBg, t.Accent, def.MatchHighlightBg)
+	fallback(&t.MatchHighlightFg, "", def.MatchHighlightFg)
+	fallback(&t.SortActiveFg, t.Accent, def.SortActiveFg)
+	fallback(&t.PortPrivileged, "", def.PortPrivileged)
+	fallback(&t.PortDev, "", def.PortDev)
+	fallback(&t.PortRegistered, "", def.PortRegistered)
+	fallback(&t.PortEphemeral, "", def.PortEphemeral)
+	fallback(&t.PortAny, "", def.PortAny)
+	fallback(&t.StatusBarBg, "", def.StatusBarBg)
+	fallback(&t.StatusPidFg, "", def.StatusPidFg)
+	fallback(&t.RowSelectedBar, t.Accent, def.RowSelectedBar)
+	fallback(&t.HeaderFg, t.DialogBody, def.HeaderFg)
+	fallback(&t.HeaderDimFg, "", def.HeaderDimFg)
+}
+
 // Load reads the theme from the XDG config file. If missing or invalid, returns defaults.
-func Load() Theme {
+func Load() Config {
 	path, err := xdg.SearchConfigFile(configPath)
 	if err != nil {
-		return DefaultTheme()
+		return Config{Theme: DefaultTheme(), SelectionStyle: "bar"}
 	}
 
 	var cfg configFile
 	if _, err := toml.DecodeFile(path, &cfg); err != nil {
 		fmt.Fprintf(os.Stderr, "phunter: warning: failed to parse %s: %v (using defaults)\n", path, err)
-		return DefaultTheme()
+		return Config{Theme: DefaultTheme(), SelectionStyle: "bar"}
 	}
-	return cfg.Colors
+
+	cfg.Colors.resolve()
+
+	style := cfg.SelectionStyle
+	if style == "" {
+		style = "bar"
+	}
+
+	return Config{Theme: cfg.Colors, SelectionStyle: style}
 }
 
 // EnsureConfig writes the default config file if it doesn't already exist.

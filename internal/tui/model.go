@@ -2,10 +2,9 @@ package tui
 
 import (
 	"fmt"
-	"strconv"
 	"time"
 
-	"github.com/charmbracelet/bubbles/table"
+	"github.com/charmbracelet/bubbles/textinput"
 	tea "github.com/charmbracelet/bubbletea"
 
 	"phunter/internal/process"
@@ -14,6 +13,52 @@ import (
 
 const autoRefreshInterval = 5 * time.Second
 
+// Mode represents the current UI mode.
+type Mode int
+
+const (
+	ModeNormal Mode = iota
+	ModeFilter
+	ModeConfirmKill
+)
+
+// FilterField represents which filter input is active.
+type FilterField int
+
+const (
+	FilterName FilterField = iota
+	FilterPort
+)
+
+// SortKey represents which column to sort by.
+type SortKey int
+
+const (
+	SortPID SortKey = iota
+	SortProcess
+	SortUser
+	SortType
+	SortPort
+)
+
+func (k SortKey) String() string {
+	switch k {
+	case SortPID:
+		return "pid"
+	case SortProcess:
+		return "process"
+	case SortUser:
+		return "user"
+	case SortType:
+		return "type"
+	case SortPort:
+		return "port"
+	}
+	return "pid"
+}
+
+// Message types
+
 type refreshMsg struct {
 	processes []process.Process
 	err       error
@@ -21,7 +66,7 @@ type refreshMsg struct {
 
 type tickMsg time.Time
 
-type clearStatusMsg struct{}
+type clearToastMsg struct{}
 
 type killMsg struct {
 	name string
@@ -30,38 +75,72 @@ type killMsg struct {
 	err  error
 }
 
-type batchKillMsg struct {
-	killed int
-	errors []string
+type killDoneMsg struct {
+	pid int
 }
 
 type model struct {
-	table        table.Model
-	styles       Styles
-	processes    []process.Process
-	statusMsg    string
-	statusLocked bool
-	confirming   bool
-	selected     *process.Process
-	selectedPIDs map[int]bool
-	quitting     bool
-	autoRefresh  bool
-	width        int
-	height       int
+	styles    Styles
+	theme     theme.Theme
+	selStyle  string // "bar" or "block"
+	version   string
+
+	allProcs  []process.Process // full snapshot
+	viewProcs []process.Process // filtered + sorted
+	cursor    int               // index into viewProcs
+	offset    int               // first visible row
+
+	mode        Mode
+	filterField FilterField
+	nameInput   textinput.Model
+	portInput   textinput.Model
+
+	sortKey SortKey
+	sortAsc bool
+
+	autoRefresh bool
+	lastRefresh time.Time
+	nextTickIn  int // seconds remaining
+
+	killTarget int  // PID being confirmed
+	toast      string
+	toastUntil time.Time
+
+	quitting bool
+	width    int
+	height   int
 }
 
 // New creates and returns the initial TUI model.
-func New(th theme.Theme) model {
-	styles := NewStyles(th)
+func New(cfg theme.Config, version string) model {
+	styles := NewStyles(cfg.Theme)
 
-	t := table.New(
-		table.WithColumns(tableColumns(20)),
-		table.WithFocused(true),
-		table.WithHeight(20),
-	)
-	t.SetStyles(styles.Table)
+	ni := textinput.New()
+	ni.Placeholder = "filter by name or user..."
+	ni.CharLimit = 64
 
-	return model{table: t, styles: styles, selectedPIDs: make(map[int]bool)}
+	pi := textinput.New()
+	pi.Placeholder = "filter by port..."
+	pi.CharLimit = 16
+	pi.Validate = func(s string) error {
+		for _, r := range s {
+			if r < '0' || r > '9' {
+				return fmt.Errorf("digits only")
+			}
+		}
+		return nil
+	}
+
+	return model{
+		styles:    styles,
+		theme:     cfg.Theme,
+		selStyle:  cfg.SelectionStyle,
+		version:   version,
+		nameInput: ni,
+		portInput: pi,
+		sortKey:   SortPID,
+		sortAsc:   true,
+	}
 }
 
 func refreshCmd() tea.Cmd {
@@ -72,19 +151,19 @@ func refreshCmd() tea.Cmd {
 }
 
 func tickCmd() tea.Cmd {
-	return tea.Tick(autoRefreshInterval, func(t time.Time) tea.Msg {
+	return tea.Tick(1*time.Second, func(t time.Time) tea.Msg {
 		return tickMsg(t)
 	})
 }
 
-func clearStatusCmd() tea.Cmd {
+func clearToastCmd() tea.Cmd {
 	return tea.Tick(3*time.Second, func(time.Time) tea.Msg {
-		return clearStatusMsg{}
+		return clearToastMsg{}
 	})
 }
 
 func (m model) Init() tea.Cmd {
-	return refreshCmd()
+	return tea.Batch(refreshCmd(), tickCmd())
 }
 
 func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
@@ -93,154 +172,187 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case tea.WindowSizeMsg:
 		m.width = msg.Width
 		m.height = msg.Height
-		nameW := max(m.width-colPID-colUser-colType-colAddr-colPort-12, 12)
-		m.table.SetColumns(tableColumns(nameW))
-		tableH := max(m.height-7, 1)
-		m.table.SetHeight(tableH)
 		return m, nil
 
 	case tickMsg:
+		now := time.Now()
+		elapsed := now.Sub(m.lastRefresh)
 		if m.autoRefresh {
-			return m, tea.Batch(refreshCmd(), tickCmd())
+			remaining := int((autoRefreshInterval - elapsed).Seconds())
+			if remaining < 0 {
+				remaining = 0
+			}
+			m.nextTickIn = remaining
+			if elapsed >= autoRefreshInterval {
+				return m, tea.Batch(refreshCmd(), tickCmd())
+			}
 		}
-		return m, nil
-
-	case batchKillMsg:
-		m.selectedPIDs = make(map[int]bool)
-		if len(msg.errors) > 0 {
-			m.statusMsg = fmt.Sprintf("Killed %d, %d failed: %s", msg.killed, len(msg.errors), msg.errors[0])
-		} else {
-			m.statusMsg = fmt.Sprintf("Killed %d process(es)", msg.killed)
+		// Clear expired toast
+		if m.toast != "" && now.After(m.toastUntil) {
+			m.toast = ""
 		}
-		m.statusLocked = true
-		return m, tea.Batch(refreshCmd(), clearStatusCmd())
+		return m, tickCmd()
 
 	case killMsg:
 		if msg.err != nil {
-			m.statusMsg = msg.err.Error()
-			m.statusLocked = true
-			return m, clearStatusCmd()
+			m.toast = fmt.Sprintf("error: %s", msg.err.Error())
+			m.toastUntil = time.Now().Add(3 * time.Second)
+			return m, tickCmd()
 		}
-		m.statusMsg = fmt.Sprintf("Killed %s (PID %d) on :%s", msg.name, msg.pid, msg.port)
-		m.statusLocked = true
-		return m, tea.Batch(refreshCmd(), clearStatusCmd())
+		m.toast = fmt.Sprintf("killed %s (PID %d)", msg.name, msg.pid)
+		m.toastUntil = time.Now().Add(3 * time.Second)
+		return m, refreshCmd()
 
-	case clearStatusMsg:
-		m.statusLocked = false
-		m.statusMsg = fmt.Sprintf("%d process(es) listening", len(m.processes))
+	case killDoneMsg:
+		return m, nil
+
+	case clearToastMsg:
+		m.toast = ""
 		return m, nil
 
 	case refreshMsg:
 		if msg.err != nil {
-			m.statusMsg = "Error: " + msg.err.Error()
+			m.toast = "refresh failed: " + msg.err.Error()
+			m.toastUntil = time.Now().Add(3 * time.Second)
 			return m, nil
 		}
-		m.processes = msg.processes
-		m.table.SetRows(m.buildRows())
-		if !m.statusLocked {
-			m.statusMsg = fmt.Sprintf("%d process(es) listening", len(m.processes))
-		}
+		m.allProcs = msg.processes
+		m.lastRefresh = time.Now()
+		m.nextTickIn = int(autoRefreshInterval.Seconds())
+		m.recompute()
 		return m, nil
 
 	case tea.KeyMsg:
-		if m.confirming {
-			switch msg.String() {
-			case "y":
-				return m.killSelected()
-			case "n", "esc":
-				m.confirming = false
-				m.selectedPIDs = make(map[int]bool)
-				m.table.SetRows(m.buildRows())
-				m.statusMsg = "Cancelled"
-				m.statusLocked = true
-				return m, clearStatusCmd()
-			}
-			return m, nil
-		}
-
-		switch msg.String() {
-		case "q", "ctrl+c":
-			m.quitting = true
-			return m, tea.Quit
-		case "r":
-			m.statusMsg = "Refreshing..."
-			return m, refreshCmd()
-		case "a":
-			m.autoRefresh = !m.autoRefresh
-			if m.autoRefresh {
-				m.statusMsg = "Auto-refresh ON (5s)"
-				return m, tickCmd()
-			}
-			m.statusMsg = "Auto-refresh OFF"
-			return m, nil
-		case " ":
-			if len(m.processes) == 0 {
-				return m, nil
-			}
-			cursor := m.table.Cursor()
-			if cursor < 0 || cursor >= len(m.processes) {
-				return m, nil
-			}
-			pid := m.processes[cursor].PID
-			if m.selectedPIDs[pid] {
-				delete(m.selectedPIDs, pid)
-			} else {
-				m.selectedPIDs[pid] = true
-			}
-			m.table.SetRows(m.buildRows())
-			if len(m.selectedPIDs) > 0 {
-				m.statusMsg = fmt.Sprintf("%d selected", len(m.selectedPIDs))
-			} else {
-				m.statusMsg = fmt.Sprintf("%d process(es) listening", len(m.processes))
-			}
-			return m, nil
-		case "enter", "k":
-			if len(m.processes) == 0 {
-				return m, nil
-			}
-			if len(m.selectedPIDs) > 0 {
-				// Batch mode
-				m.selected = nil
-				m.confirming = true
-				return m, nil
-			}
-			cursor := m.table.Cursor()
-			if cursor < 0 || cursor >= len(m.processes) {
-				return m, nil
-			}
-			m.selected = &m.processes[cursor]
-			m.confirming = true
-			return m, nil
-		}
-	}
-
-	// Delegate navigation keys to the table when browsing.
-	if !m.confirming {
-		var cmd tea.Cmd
-		m.table, cmd = m.table.Update(msg)
-		return m, cmd
+		return m.handleKey(msg)
 	}
 
 	return m, nil
 }
 
-func (m model) buildRows() []table.Row {
-	rows := make([]table.Row, len(m.processes))
-	for i, p := range m.processes {
-		name := p.Name
-		if m.selectedPIDs[p.PID] {
-			name = "● " + name
-		}
-		rows[i] = table.Row{
-			strconv.Itoa(p.PID),
-			name,
-			p.User,
-			p.Type,
-			p.Address,
-			p.Port,
-		}
+func (m *model) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
+	switch m.mode {
+	case ModeFilter:
+		return m.handleFilterKey(msg)
+	case ModeConfirmKill:
+		return m.handleConfirmKey(msg)
+	default:
+		return m.handleNormalKey(msg)
 	}
-	return rows
+}
+
+func (m *model) handleNormalKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
+	key := msg.String()
+	switch key {
+	case "q", "ctrl+c":
+		m.quitting = true
+		return m, tea.Quit
+	case "up":
+		m.moveCursor(-1)
+		return m, nil
+	case "down":
+		m.moveCursor(1)
+		return m, nil
+	case "g":
+		m.cursor = 0
+		m.offset = 0
+		return m, nil
+	case "G":
+		if len(m.viewProcs) > 0 {
+			m.cursor = len(m.viewProcs) - 1
+			vh := m.viewHeight()
+			if m.cursor >= vh {
+				m.offset = m.cursor - vh + 1
+			}
+		}
+		return m, nil
+	case "/":
+		m.mode = ModeFilter
+		m.nameInput.Focus()
+		m.filterField = FilterName
+		return m, nil
+	case "s":
+		m.cycleSort()
+		m.recompute()
+		return m, nil
+	case "enter", "k":
+		if len(m.viewProcs) == 0 || m.cursor >= len(m.viewProcs) {
+			return m, nil
+		}
+		m.killTarget = m.viewProcs[m.cursor].PID
+		m.mode = ModeConfirmKill
+		return m, nil
+	case "r":
+		m.toast = "refreshing..."
+		m.toastUntil = time.Now().Add(2 * time.Second)
+		return m, refreshCmd()
+	case "a":
+		m.autoRefresh = !m.autoRefresh
+		if m.autoRefresh {
+			m.lastRefresh = time.Now()
+			m.nextTickIn = int(autoRefreshInterval.Seconds())
+		}
+		return m, nil
+	}
+	return m, nil
+}
+
+func (m *model) handleFilterKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
+	key := msg.String()
+	switch key {
+	case "esc":
+		m.mode = ModeNormal
+		m.nameInput.SetValue("")
+		m.portInput.SetValue("")
+		m.nameInput.Blur()
+		m.portInput.Blur()
+		m.recompute()
+		return m, nil
+	case "tab":
+		if m.filterField == FilterName {
+			m.filterField = FilterPort
+			m.nameInput.Blur()
+			m.portInput.Focus()
+		} else {
+			m.filterField = FilterName
+			m.portInput.Blur()
+			m.nameInput.Focus()
+		}
+		return m, nil
+	case "enter":
+		m.mode = ModeNormal
+		m.nameInput.Blur()
+		m.portInput.Blur()
+		m.recompute()
+		return m, nil
+	}
+
+	// Forward to active input
+	var cmd tea.Cmd
+	if m.filterField == FilterName {
+		m.nameInput, cmd = m.nameInput.Update(msg)
+	} else {
+		m.portInput, cmd = m.portInput.Update(msg)
+	}
+	m.recompute()
+	return m, cmd
+}
+
+func (m *model) handleConfirmKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
+	switch msg.String() {
+	case "y":
+		m.mode = ModeNormal
+		// Find the process to kill
+		for _, p := range m.allProcs {
+			if p.PID == m.killTarget {
+				return m, killCmd(p)
+			}
+		}
+		return m, nil
+	case "n", "esc":
+		m.mode = ModeNormal
+		return m, nil
+	}
+	return m, nil
 }
 
 func killCmd(p process.Process) tea.Cmd {
@@ -250,40 +362,85 @@ func killCmd(p process.Process) tea.Cmd {
 	}
 }
 
-func batchKillCmd(procs []process.Process) tea.Cmd {
-	return func() tea.Msg {
-		var killed int
-		var errs []string
-		for _, p := range procs {
-			if err := process.Kill(p.PID); err != nil {
-				errs = append(errs, err.Error())
-			} else {
-				killed++
-			}
+func (m *model) recompute() {
+	m.viewProcs = applyFilterAndSort(
+		m.allProcs,
+		m.nameInput.Value(),
+		m.portInput.Value(),
+		m.sortKey,
+		m.sortAsc,
+	)
+	// Clamp cursor
+	if len(m.viewProcs) == 0 {
+		m.cursor = 0
+		m.offset = 0
+	} else {
+		if m.cursor >= len(m.viewProcs) {
+			m.cursor = len(m.viewProcs) - 1
 		}
-		return batchKillMsg{killed: killed, errors: errs}
+		if m.cursor < 0 {
+			m.cursor = 0
+		}
+		vh := m.viewHeight()
+		if m.cursor < m.offset {
+			m.offset = m.cursor
+		}
+		if m.cursor >= m.offset+vh {
+			m.offset = m.cursor - vh + 1
+		}
 	}
 }
 
-func (m model) killSelected() (tea.Model, tea.Cmd) {
-	m.confirming = false
-
-	// Batch kill mode
-	if len(m.selectedPIDs) > 0 {
-		var targets []process.Process
-		for _, p := range m.processes {
-			if m.selectedPIDs[p.PID] {
-				targets = append(targets, p)
-			}
-		}
-		m.statusMsg = fmt.Sprintf("Killing %d process(es)...", len(targets))
-		return m, batchKillCmd(targets)
+func (m *model) moveCursor(delta int) {
+	if len(m.viewProcs) == 0 {
+		return
 	}
-
-	// Single kill mode
-	if m.selected == nil {
-		return m, nil
+	m.cursor += delta
+	if m.cursor < 0 {
+		m.cursor = 0
 	}
-	m.statusMsg = fmt.Sprintf("Killing %s (PID %d)...", m.selected.Name, m.selected.PID)
-	return m, killCmd(*m.selected)
+	if m.cursor >= len(m.viewProcs) {
+		m.cursor = len(m.viewProcs) - 1
+	}
+	vh := m.viewHeight()
+	if m.cursor < m.offset {
+		m.offset = m.cursor
+	}
+	if m.cursor >= m.offset+vh {
+		m.offset = m.cursor - vh + 1
+	}
+}
+
+func (m *model) cycleSort() {
+	nextKey := SortKey((int(m.sortKey) + 1) % 5)
+	if nextKey == SortPID && m.sortKey == SortPort {
+		// Wrapped around — flip direction instead of advancing
+		m.sortAsc = !m.sortAsc
+	} else {
+		m.sortKey = nextKey
+		m.sortAsc = true
+	}
+}
+
+func (m *model) viewHeight() int {
+	// header(1) + header-border(1) + column-header(1) + status(1) + help(1) = 5
+	// filter bar adds 3 when visible
+	overhead := 5
+	if m.mode == ModeFilter || m.nameInput.Value() != "" || m.portInput.Value() != "" {
+		overhead += 3
+	}
+	vh := m.height - overhead
+	if vh < 1 {
+		vh = 1
+	}
+	return vh
+}
+
+// selectedProc returns the currently selected process, or nil if none.
+func (m *model) selectedProc() *process.Process {
+	if len(m.viewProcs) == 0 || m.cursor >= len(m.viewProcs) {
+		return nil
+	}
+	p := m.viewProcs[m.cursor]
+	return &p
 }
