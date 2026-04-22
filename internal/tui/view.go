@@ -8,6 +8,7 @@ import (
 
 	"github.com/charmbracelet/lipgloss"
 
+	"phunter/internal/overlay"
 	"phunter/internal/ports"
 	"phunter/internal/process"
 )
@@ -36,14 +37,8 @@ func (m model) View() string {
 	// 5. Status line
 	statusLine := m.renderStatusLine()
 
-	// 6. Help bar / confirm bar
-	var footer string
-	switch m.mode {
-	case ModeConfirmKill:
-		footer = m.renderConfirmBar()
-	default:
-		footer = m.renderHelpBar()
-	}
+	// 6. Footer (always help bar)
+	footer := m.renderHelpBar()
 
 	// Calculate gap to push status + footer to bottom
 	topContent := strings.Join(sections, "\n") + "\n" + tableContent
@@ -57,7 +52,19 @@ func (m model) View() string {
 		topContent += strings.Repeat("\n", gap)
 	}
 
-	return topContent + "\n" + statusLine + "\n" + footer
+	output := topContent + "\n" + statusLine + "\n" + footer
+
+	// 7. Kill confirmation overlay
+	if m.mode == ModeConfirmKill {
+		dialog := m.renderKillDialog()
+		dialogW := lipgloss.Width(dialog)
+		dialogH := strings.Count(dialog, "\n") + 1
+		x := (m.width - dialogW) / 2
+		y := (m.height - dialogH) / 2
+		output = overlay.Place(x, y, dialog, output)
+	}
+
+	return output
 }
 
 // renderHeader renders: ◉ PortHunter  v0.3.0    listening N/M processes  │  ● auto  HH:MM:SS
@@ -88,10 +95,7 @@ func (m model) renderHeader() string {
 	// Pad middle to fill width
 	leftW := lipgloss.Width(left)
 	rightW := lipgloss.Width(right)
-	gap := m.width - leftW - rightW
-	if gap < 2 {
-		gap = 2
-	}
+	gap := max(m.width-leftW-rightW, 2)
 
 	return left + strings.Repeat(" ", gap) + right
 }
@@ -116,16 +120,13 @@ func (m model) renderFilterBar() string {
 		inputView = m.portInput.View()
 	}
 
-	innerW := m.width - 6 // border + padding
-	if innerW < 20 {
-		innerW = 20
-	}
+	// border + padding
+	innerW := max(m.width-6, 20)
 
 	pillsW := lipgloss.Width(pills)
-	inputW := innerW - pillsW - 3 // separator spacing
-	if inputW < 10 {
-		inputW = 10
-	}
+
+	// separator spacing
+	inputW := max(innerW-pillsW-3, 10)
 	m.nameInput.Width = inputW
 	m.portInput.Width = inputW
 
@@ -193,10 +194,7 @@ func (m model) renderTableRows() string {
 	}
 
 	vh := m.viewHeight()
-	end := m.offset + vh
-	if end > len(m.viewProcs) {
-		end = len(m.viewProcs)
-	}
+	end := min(m.offset+vh, len(m.viewProcs))
 
 	nameW := m.nameColWidth()
 	nameFilter := m.nameInput.Value()
@@ -235,6 +233,13 @@ func (m model) renderRow(p process.Process, selected bool, nameW int, nameFilter
 	addrStr := padOrTruncate(p.Address, colAddr)
 	portStr := padOrTruncate(p.Port, colPort)
 
+	// Apply TYPE column coloring (IPv4 = sapphire, IPv6 = mauve)
+	if strings.Contains(p.Type, "6") {
+		typeStr = m.styles.TypeIPv6.Render(typeStr)
+	} else {
+		typeStr = m.styles.TypeIPv4.Render(typeStr)
+	}
+
 	// Apply highlighting
 	if nameFilter != "" {
 		nameStr = m.highlightCell(padOrTruncate(p.Name, nameW), nameFilter, nameW)
@@ -242,6 +247,11 @@ func (m model) renderRow(p process.Process, selected bool, nameW int, nameFilter
 	}
 	if portFilter != "" {
 		portStr = m.highlightCell(padOrTruncate(p.Port, colPort), portFilter, colPort)
+	}
+
+	// Bold selected process name
+	if selected {
+		nameStr = lipgloss.NewStyle().Bold(true).Render(nameStr)
 	}
 
 	// Port number gets class color
@@ -279,39 +289,58 @@ func (m model) renderStatusLine() string {
 	} else if p := m.selectedProc(); p != nil {
 		portNum, _ := strconv.Atoi(p.Port)
 		class := ports.Classify(portNum)
-		left = m.styles.HeaderAccent.Render("▶") + " " +
+		classStyle := m.portClassStyle(class)
+		left = m.styles.HeaderAccent.Render("▸") + " " +
 			m.styles.StatusText.Render(p.Name) + "  " +
 			m.styles.StatusDim.Render("pid") + " " +
 			m.styles.StatusPid.Render(fmt.Sprintf("%d", p.PID)) + "  " +
 			m.styles.StatusDim.Render("·  port") + " " +
-			m.styles.StatusText.Render(p.Port) + "  " +
+			classStyle.Render(p.Port) + "  " +
 			m.styles.StatusDim.Render("·") + "  " +
-			m.portClassStyle(class).Render(class.String())
+			classStyle.Render(class.String())
+	} else {
+		left = m.styles.StatusDim.Italic(true).Render("no selection")
 	}
 
-	// Right side: sort info + auto refresh countdown
+	// Right side: filter indicators + sort info + auto refresh countdown
+	var rightParts []string
+
+	if v := m.nameInput.Value(); v != "" {
+		rightParts = append(rightParts,
+			m.styles.StatusDim.Render("name=")+m.styles.HeaderAccent.Render(v))
+	}
+	if v := m.portInput.Value(); v != "" {
+		rightParts = append(rightParts,
+			m.styles.StatusDim.Render("port=")+m.styles.HeaderAccent.Render(v))
+	}
+
 	arrow := "↑"
 	if !m.sortAsc {
 		arrow = "↓"
 	}
-	right := m.styles.StatusDim.Render("sort") + " " +
-		m.styles.StatusText.Bold(true).Render(m.sortKey.String()) + " " +
-		m.styles.StatusText.Render(arrow)
+	rightParts = append(rightParts,
+		m.styles.StatusDim.Render("sort")+" "+
+			m.styles.StatusText.Bold(true).Render(m.sortKey.String())+" "+
+			m.styles.StatusText.Render(arrow))
 
 	if m.autoRefresh {
-		right += "  " + m.styles.StatusDim.Render("·") + "  " +
-			m.styles.AutoRefreshOn.Render("●") + " " +
-			m.styles.StatusDim.Render(fmt.Sprintf("auto in %ds", m.nextTickIn))
+		rightParts = append(rightParts,
+			m.styles.AutoRefreshOn.Render("●")+" "+
+				m.styles.StatusDim.Render(fmt.Sprintf("auto in %ds", m.nextTickIn)))
+	} else {
+		rightParts = append(rightParts,
+			m.styles.StatusDim.Render("○ auto off"))
 	}
 
+	right := strings.Join(rightParts, "  "+m.styles.StatusDim.Render("·")+"  ")
+
+	// Account for 1-char padding on each side
+	innerW := m.width - 2
 	leftW := lipgloss.Width(left)
 	rightW := lipgloss.Width(right)
-	gap := m.width - leftW - rightW
-	if gap < 2 {
-		gap = 2
-	}
+	gap := max(innerW-leftW-rightW, 2)
 
-	line := left + strings.Repeat(" ", gap) + right
+	line := " " + left + strings.Repeat(" ", gap) + right + " "
 	return m.styles.StatusBar.Width(m.width).Render(line)
 }
 
@@ -323,9 +352,9 @@ func (m model) renderHelpBar() string {
 	switch m.mode {
 	case ModeFilter:
 		bindings = []binding{
-			{"Tab", "mode"},
-			{"⏎", "apply"},
+			{"⇥", "toggle"},
 			{"Esc", "close"},
+			{"⏎", "apply"},
 		}
 	default:
 		bindings = []binding{
@@ -340,22 +369,68 @@ func (m model) renderHelpBar() string {
 		}
 	}
 
-	var parts []string
+	// Build chips: key chip (surface0 bg + lavender fg) + label (overlay1 fg)
+	var chips []string
 	for _, b := range bindings {
-		parts = append(parts,
-			m.styles.HelpKey.Render(b.key)+m.styles.HelpDesc.Render(b.desc),
+		chips = append(chips,
+			m.styles.FooterKey.Render(b.key)+" "+m.styles.FooterLabel.Render(b.desc),
 		)
 	}
-	bar := strings.Join(parts, m.styles.HelpBar.Render(" "))
-	barW := lipgloss.Width(bar)
-	if m.width > barW {
-		bar += m.styles.HelpBar.Render(strings.Repeat(" ", m.width-barW))
+
+	// Width-aware wrapping: greedy line-break
+	var lines []string
+	var currentLine string
+	for i, chip := range chips {
+		candidate := currentLine
+		if candidate != "" {
+			candidate += "   " + chip
+		} else {
+			candidate = chip
+		}
+		if currentLine != "" && lipgloss.Width(candidate) > m.width && m.width > 0 {
+			lines = append(lines, currentLine)
+			currentLine = chip
+		} else {
+			if i > 0 && currentLine != "" {
+				currentLine += "   " + chip
+			} else {
+				currentLine = chip
+			}
+		}
 	}
-	return bar
+	if currentLine != "" {
+		lines = append(lines, currentLine)
+	}
+
+	// Top border + bar (no solid background — transparent)
+	border := m.styles.TableHeaderBorder.Render(strings.Repeat("─", m.width))
+	return border + "\n" + strings.Join(lines, "\n")
 }
 
 // renderConfirmBar renders the kill confirmation footer.
 func (m model) renderConfirmBar() string {
+	question := m.styles.ConfirmBar.Render(
+		fmt.Sprintf("▲  Kill process %d?", m.killTarget))
+	yes := m.styles.ConfirmYes.Render("[y] yes")
+	no := m.styles.ConfirmNo.Render("[n] cancel")
+
+	right := yes + "  " + no
+	leftW := lipgloss.Width(question)
+	rightW := lipgloss.Width(right)
+	gap := max(m.width-leftW-rightW, 2)
+
+	bar := question + m.styles.ConfirmBar.Render(strings.Repeat(" ", gap)) + right
+	barW := lipgloss.Width(bar)
+	if m.width > barW {
+		bar += m.styles.ConfirmBar.Render(strings.Repeat(" ", m.width-barW))
+	}
+
+	border := m.styles.TableHeaderBorder.Render(strings.Repeat("─", m.width))
+	return border + "\n" + bar
+}
+
+// renderKillDialog renders a centered overlay dialog for kill confirmation.
+func (m model) renderKillDialog() string {
 	// Find the target process name
 	name := "?"
 	for _, p := range m.viewProcs {
@@ -365,27 +440,23 @@ func (m model) renderConfirmBar() string {
 		}
 	}
 
-	question := m.styles.ConfirmBar.Render(
-		fmt.Sprintf("Kill process %s (PID %d)?", name, m.killTarget))
+	question := m.styles.DialogBody.Render(
+		fmt.Sprintf("Kill %s (PID %d)?", name, m.killTarget))
+
 	yes := m.styles.ConfirmYes.Render("[y] yes")
 	no := m.styles.ConfirmNo.Render("[n] cancel")
 
-	bar := question + "  " + yes + "  " + no
-	barW := lipgloss.Width(bar)
-	if m.width > barW {
-		bar += m.styles.HelpBar.Render(strings.Repeat(" ", m.width-barW))
-	}
-	return bar
+	buttons := yes + "  " + no
+	content := question + "\n\n" + buttons
+
+	return m.styles.DialogBox.Render(content)
 }
 
 // Helper functions
 
 func (m model) nameColWidth() int {
 	fixed := colGlyph + colPID + colUser + colType + colAddr + colPort + 7 // 7 separators
-	w := m.width - fixed
-	if w < 12 {
-		w = 12
-	}
+	w := max(m.width-fixed, 12)
 	return w
 }
 

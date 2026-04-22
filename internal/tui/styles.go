@@ -24,6 +24,8 @@ type Styles struct {
 	RowSelected      lipgloss.Style
 	RowSelectedBar   lipgloss.Style
 	RowSelectedBlock lipgloss.Style
+	TypeIPv4         lipgloss.Style
+	TypeIPv6         lipgloss.Style
 
 	// Port class glyph colors
 	PortPrivileged lipgloss.Style
@@ -46,10 +48,14 @@ type Styles struct {
 	StatusText  lipgloss.Style
 	StatusDim   lipgloss.Style
 
-	// Help bar
+	// Help bar (legacy)
 	HelpBar  lipgloss.Style
 	HelpKey  lipgloss.Style
 	HelpDesc lipgloss.Style
+
+	// Footer keybind bar
+	FooterKey   lipgloss.Style
+	FooterLabel lipgloss.Style
 
 	// Kill confirmation
 	ConfirmBar  lipgloss.Style
@@ -104,6 +110,10 @@ func NewStyles(t theme.Theme) Styles {
 		RowSelectedBlock: lipgloss.NewStyle().
 			Foreground(lipgloss.Color(t.SelectedRowFg)).
 			Background(lipgloss.Color(t.SelectedRowBg)),
+		TypeIPv4: lipgloss.NewStyle().
+			Foreground(lipgloss.Color(t.RowTypeIPv4Fg)),
+		TypeIPv6: lipgloss.NewStyle().
+			Foreground(lipgloss.Color(t.RowTypeIPv6Fg)),
 
 		// Port class
 		PortPrivileged: lipgloss.NewStyle().
@@ -149,7 +159,7 @@ func NewStyles(t theme.Theme) Styles {
 		StatusDim: lipgloss.NewStyle().
 			Foreground(lipgloss.Color(t.HeaderDimFg)),
 
-		// Help bar
+		// Help bar (legacy, kept for backward compat)
 		HelpBar: lipgloss.NewStyle().
 			Background(lipgloss.Color(t.HelpBarBg)).
 			Foreground(lipgloss.Color(t.HelpBarFg)),
@@ -163,18 +173,27 @@ func NewStyles(t theme.Theme) Styles {
 			Foreground(lipgloss.Color(t.HelpBarFg)).
 			Padding(0, 1),
 
+		// Footer keybind bar (new design)
+		FooterKey: lipgloss.NewStyle().
+			Background(lipgloss.Color(t.FooterKeyBg)).
+			Foreground(lipgloss.Color(t.FooterKeyFg)).
+			Bold(true).
+			Padding(0, 1),
+		FooterLabel: lipgloss.NewStyle().
+			Foreground(lipgloss.Color(t.FooterLabelFg)),
+
 		// Kill confirmation
 		ConfirmBar: lipgloss.NewStyle().
-			Background(lipgloss.Color(t.HelpBarBg)).
-			Foreground(lipgloss.Color(t.DialogBody)),
+			Background(lipgloss.Color(t.ConfirmBarBg)).
+			Foreground(lipgloss.Color(t.ConfirmBarFg)),
 		ConfirmYes: lipgloss.NewStyle().
-			Background(lipgloss.Color(t.HelpBarBg)).
-			Foreground(lipgloss.Color(t.YesButton)).
+			Background(lipgloss.Color(t.ConfirmChipBg)).
+			Foreground(lipgloss.Color(t.ConfirmChipFg)).
 			Bold(true).
 			Padding(0, 1),
 		ConfirmNo: lipgloss.NewStyle().
-			Background(lipgloss.Color(t.HelpBarBg)).
-			Foreground(lipgloss.Color(t.NoButton)).
+			Background(lipgloss.Color(t.ConfirmChipBg)).
+			Foreground(lipgloss.Color(t.ConfirmChipFg)).
 			Padding(0, 1),
 		DialogBox: lipgloss.NewStyle().
 			Border(lipgloss.RoundedBorder()).

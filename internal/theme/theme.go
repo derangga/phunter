@@ -63,13 +63,26 @@ port_any            = "#6e738d"   # Overlay0
 # Status line
 status_bar_bg       = "#1e2030"   # Mantle
 status_pid_fg       = "#f5a97b"   # Peach
+confirm_bar_bg      = "#ed8796"   # Red — background for kill confirm footer
+confirm_bar_fg      = "#24273a"   # Base — foreground for kill confirm
+confirm_chip_bg     = "#24273a"   # Base — inverted chip background
+confirm_chip_fg     = "#ed8796"   # Red — inverted chip foreground
 
 # Row selection
 row_selected_bar    = "#8aadf4"   # accent — left rail color
 
+# Row TYPE column
+row_type_ipv4_fg    = "#7dc4e4"   # Sapphire — IPv4 text color
+row_type_ipv6_fg    = "#c6a0f6"   # Mauve — IPv6 text color
+
 # Header
 header_fg           = "#cad3f5"   # Text
 header_dim_fg       = "#6e738d"   # Overlay0
+
+# Footer keybind bar
+footer_key_bg       = "#363a4f"   # Surface0 — key chip background
+footer_key_fg       = "#b7bdf8"   # Lavender — key chip foreground
+footer_label_fg     = "#8087a2"   # Overlay1 — key label foreground
 `
 
 type Theme struct {
@@ -109,9 +122,18 @@ type Theme struct {
 	PortAny           string `toml:"port_any"`
 	StatusBarBg       string `toml:"status_bar_bg"`
 	StatusPidFg       string `toml:"status_pid_fg"`
+	ConfirmBarBg      string `toml:"confirm_bar_bg"`
+	ConfirmBarFg      string `toml:"confirm_bar_fg"`
+	ConfirmChipBg     string `toml:"confirm_chip_bg"`
+	ConfirmChipFg     string `toml:"confirm_chip_fg"`
 	RowSelectedBar    string `toml:"row_selected_bar"`
 	HeaderFg          string `toml:"header_fg"`
 	HeaderDimFg       string `toml:"header_dim_fg"`
+	FooterKeyBg       string `toml:"footer_key_bg"`
+	FooterKeyFg       string `toml:"footer_key_fg"`
+	FooterLabelFg     string `toml:"footer_label_fg"`
+	RowTypeIPv4Fg     string `toml:"row_type_ipv4_fg"`
+	RowTypeIPv6Fg     string `toml:"row_type_ipv6_fg"`
 }
 
 type configFile struct {
@@ -160,9 +182,18 @@ func DefaultTheme() Theme {
 		PortAny:           "#6e738d",
 		StatusBarBg:       "#1e2030",
 		StatusPidFg:       "#f5a97b",
+		ConfirmBarBg:      "#ed8796",
+		ConfirmBarFg:      "#24273a",
+		ConfirmChipBg:     "#24273a",
+		ConfirmChipFg:     "#ed8796",
 		RowSelectedBar:    "#8aadf4",
 		HeaderFg:          "#cad3f5",
 		HeaderDimFg:       "#6e738d",
+		FooterKeyBg:       "#363a4f",
+		FooterKeyFg:       "#b7bdf8",
+		FooterLabelFg:     "#8087a2",
+		RowTypeIPv4Fg:     "#7dc4e4",
+		RowTypeIPv6Fg:     "#c6a0f6",
 	}
 }
 
@@ -179,6 +210,8 @@ func (t *Theme) resolve() {
 		}
 	}
 
+	fallback(&t.AutoRefreshOn, t.YesButton, def.AutoRefreshOn)
+	fallback(&t.AutoRefreshOff, "", def.AutoRefreshOff)
 	fallback(&t.Accent, t.HelpKeyBg, def.Accent)
 	fallback(&t.FilterBorder, t.TableHeaderBorder, def.FilterBorder)
 	fallback(&t.FilterLabelFg, t.StatusText, def.FilterLabelFg)
@@ -197,9 +230,18 @@ func (t *Theme) resolve() {
 	fallback(&t.PortAny, "", def.PortAny)
 	fallback(&t.StatusBarBg, "", def.StatusBarBg)
 	fallback(&t.StatusPidFg, "", def.StatusPidFg)
+	fallback(&t.ConfirmBarBg, t.DialogBorder, def.ConfirmBarBg)
+	fallback(&t.ConfirmBarFg, "", def.ConfirmBarFg)
+	fallback(&t.ConfirmChipBg, "", def.ConfirmChipBg)
+	fallback(&t.ConfirmChipFg, t.ConfirmBarBg, def.ConfirmChipFg)
 	fallback(&t.RowSelectedBar, t.Accent, def.RowSelectedBar)
 	fallback(&t.HeaderFg, t.DialogBody, def.HeaderFg)
 	fallback(&t.HeaderDimFg, "", def.HeaderDimFg)
+	fallback(&t.FooterKeyBg, t.HelpBarBg, def.FooterKeyBg)
+	fallback(&t.FooterKeyFg, t.HelpBarFg, def.FooterKeyFg)
+	fallback(&t.FooterLabelFg, t.HelpBarFg, def.FooterLabelFg)
+	fallback(&t.RowTypeIPv4Fg, t.PortRegistered, def.RowTypeIPv4Fg)
+	fallback(&t.RowTypeIPv6Fg, t.DialogBorder, def.RowTypeIPv6Fg)
 }
 
 // Load reads the theme from the XDG config file. If missing or invalid, returns defaults.
