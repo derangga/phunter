@@ -79,10 +79,10 @@ type batchKillMsg struct {
 }
 
 type model struct {
-	table    table.Model
-	styles   Styles
-	theme    theme.Theme
-	version  string
+	table   table.Model
+	styles  Styles
+	theme   theme.Theme
+	version string
 
 	allProcs  []process.Process // full snapshot
 	viewProcs []process.Process // filtered + sorted
@@ -445,10 +445,10 @@ func (m *model) cycleSort() {
 }
 
 func (m *model) viewHeight() int {
-	// app header(1) + status(1) + help bar border(1) + help bar content(1) = 4
+	// app header(1) + status(3) + help bar border(1) + help bar content(1) = 6
 	// filter bar adds 3 when visible
 	// The bubbles table handles its own header+border internally
-	overhead := 4
+	overhead := 6
 	if m.mode == ModeFilter || m.nameInput.Value() != "" || m.portInput.Value() != "" {
 		overhead += 3
 	}

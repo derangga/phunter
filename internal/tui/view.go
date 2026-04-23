@@ -40,7 +40,7 @@ func (m model) View() string {
 	// Calculate gap to push status + footer to bottom
 	topContent := strings.Join(sections, "\n")
 	topLines := strings.Count(topContent, "\n") + 1
-	statusLines := 1
+	statusLines := 3
 	footerLines := strings.Count(footer, "\n") + 1
 	usedLines := topLines + statusLines + footerLines
 
@@ -219,12 +219,16 @@ func (m model) renderStatusLine() string {
 
 	right := strings.Join(rightParts, m.styles.StatusDim.Render("·", "  "))
 
-	innerW := m.width - 2
+	innerW := m.width - 4
 	leftW := lipgloss.Width(left)
 	rightW := lipgloss.Width(right)
 	gap := max(innerW-leftW-rightW, 2)
 
-	return " " + left + strings.Repeat(m.styles.StatusBar.Render(" "), gap) + right + " "
+	padding := m.styles.StatusBar.Render(" ")
+	emptyLine := m.styles.StatusBar.Render(strings.Repeat(" ", m.width))
+	contentLine := strings.Repeat(padding, 2) + left + strings.Repeat(padding, gap) + right + strings.Repeat(padding, 2)
+
+	return emptyLine + "\n" + contentLine + "\n" + emptyLine
 }
 
 // renderHelpBar renders the slim footer with only the most important keys.
