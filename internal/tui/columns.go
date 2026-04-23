@@ -3,7 +3,7 @@ package tui
 import "github.com/charmbracelet/bubbles/table"
 
 const (
-	colGlyph = 2  // port class glyph + space
+	colGlyph = 2 // port class glyph + space
 	colPID   = 7
 	colUser  = 12
 	colType  = 7

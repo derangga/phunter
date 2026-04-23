@@ -43,7 +43,6 @@ type Styles struct {
 	FooterLabel lipgloss.Style
 
 	// Kill confirmation
-	ConfirmBar lipgloss.Style
 	ConfirmYes lipgloss.Style
 	ConfirmNo  lipgloss.Style
 	DialogBox  lipgloss.Style
@@ -62,7 +61,6 @@ type Styles struct {
 
 func NewStyles(t theme.Theme) Styles {
 	accent := lipgloss.Color(t.Title)
-	// surface0 := lipgloss.Color(t.HelpBarBg)
 
 	s := Styles{
 		// Header
@@ -90,20 +88,6 @@ func NewStyles(t theme.Theme) Styles {
 		TableHeaderBorder: lipgloss.NewStyle().
 			Foreground(lipgloss.Color(t.TableHeaderBorder)),
 
-		// Rows
-		// RowNormal: lipgloss.NewStyle(),
-		// RowSelected: lipgloss.NewStyle().
-		// 	Background(surface0),
-		// RowSelectedBar: lipgloss.NewStyle().
-		// 	Foreground(accent),
-		// RowSelectedBlock: lipgloss.NewStyle().
-		// 	Foreground(lipgloss.Color(t.SelectedRowFg)).
-		// 	Background(lipgloss.Color(t.SelectedRowBg)),
-		// TypeIPv4: lipgloss.NewStyle().
-		// 	Foreground(lipgloss.Color(t.RowTypeIPv4Fg)),
-		// TypeIPv6: lipgloss.NewStyle().
-		// 	Foreground(lipgloss.Color(t.RowTypeIPv6Fg)),
-
 		// Port class
 		PortPrivileged: lipgloss.NewStyle().
 			Background(lipgloss.Color(t.StatusBarBg)).
@@ -125,10 +109,6 @@ func NewStyles(t theme.Theme) Styles {
 		FilterBorder: lipgloss.NewStyle().
 			Border(lipgloss.RoundedBorder()).
 			BorderForeground(lipgloss.Color(t.FilterBorder)),
-		// FilterLabel: lipgloss.NewStyle().
-		// 	Foreground(lipgloss.Color(t.FilterLabelFg)),
-		// FilterPlaceholder: lipgloss.NewStyle().
-		// 	Foreground(lipgloss.Color(t.FilterPlaceholder)),
 		FilterModeActive: lipgloss.NewStyle().
 			Background(lipgloss.Color(t.FilterModeActiveBg)).
 			Foreground(lipgloss.Color(t.FilterModeActiveFg)).
@@ -138,9 +118,6 @@ func NewStyles(t theme.Theme) Styles {
 			Background(lipgloss.Color(t.FilterModeIdleBg)).
 			Foreground(lipgloss.Color(t.FilterModeIdleFg)).
 			Padding(0, 1),
-		// MatchHighlight: lipgloss.NewStyle().
-		// 	Background(lipgloss.Color(t.MatchHighlightBg)).
-		// 	Foreground(lipgloss.Color(t.MatchHighlightFg)),
 
 		// Status line
 		StatusBar: lipgloss.NewStyle().
@@ -156,21 +133,7 @@ func NewStyles(t theme.Theme) Styles {
 			Background(lipgloss.Color(t.StatusBarBg)).
 			Foreground(lipgloss.Color(t.HeaderDimFg)),
 
-		// Help bar (legacy, kept for backward compat)
-		// HelpBar: lipgloss.NewStyle().
-		// 	Background(lipgloss.Color(t.HelpBarBg)).
-		// 	Foreground(lipgloss.Color(t.HelpBarFg)),
-		// HelpKey: lipgloss.NewStyle().
-		// 	Background(lipgloss.Color(t.HelpKeyBg)).
-		// 	Foreground(lipgloss.Color(t.HelpKeyFg)).
-		// 	Bold(true).
-		// 	Padding(0, 1),
-		// HelpDesc: lipgloss.NewStyle().
-		// 	Background(lipgloss.Color(t.HelpBarBg)).
-		// 	Foreground(lipgloss.Color(t.HelpBarFg)).
-		// 	Padding(0, 1),
-
-		// Footer keybind bar (new design)
+		// Footer keybind bar
 		FooterKey: lipgloss.NewStyle().
 			Background(lipgloss.Color(t.FooterKeyBg)).
 			Foreground(lipgloss.Color(t.FooterKeyFg)).

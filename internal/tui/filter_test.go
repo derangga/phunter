@@ -77,7 +77,7 @@ func TestApplyFilterAndSort(t *testing.T) {
 
 func TestHighlightMatch(t *testing.T) {
 	tests := []struct {
-		text, substr       string
+		text, substr         string
 		before, match, after string
 	}{
 		{"Hello World", "world", "Hello ", "World", ""},
