@@ -178,13 +178,12 @@ func (m model) renderStatusLine() string {
 		portNum, _ := strconv.Atoi(p.Port)
 		class := ports.Classify(portNum)
 		classStyle := m.portClassStyle(class)
-		left = m.styles.StatusDim.Render("▸", " ") +
+		left = m.styles.StatusDim.Render("", " ") +
 			m.styles.StatusText.Render(p.Name, " ") +
 			m.styles.StatusDim.Render("pid", " ") +
 			m.styles.StatusPid.Render(fmt.Sprintf("%d", p.PID), " ") +
 			m.styles.StatusDim.Render("·  port", " ") +
 			classStyle.Render(p.Port, " ") +
-			m.styles.StatusDim.Render("·", " ") +
 			classStyle.Render(class.String())
 	} else {
 		left = m.styles.StatusDim.Italic(true).Render("no selection")
@@ -212,12 +211,12 @@ func (m model) renderStatusLine() string {
 			m.styles.StatusText.Render(arrow, " "))
 
 	if m.autoRefresh {
-		rightParts = append(rightParts, m.styles.StatusDim.Render(fmt.Sprintf("auto in %ds", m.nextTickIn)))
+		rightParts = append(rightParts, m.styles.StatusText.Render(fmt.Sprintf("refresh in %ds", m.nextTickIn)))
 	} else {
 		rightParts = append(rightParts, m.styles.StatusDim.Render("○ auto off", " "))
 	}
 
-	right := strings.Join(rightParts, m.styles.StatusDim.Render("·", "  "))
+	right := strings.Join(rightParts, m.styles.StatusDim.Render("·", " "))
 
 	innerW := m.width - 4
 	leftW := lipgloss.Width(left)
