@@ -178,13 +178,13 @@ func (m model) renderStatusLine() string {
 		portNum, _ := strconv.Atoi(p.Port)
 		class := ports.Classify(portNum)
 		classStyle := m.portClassStyle(class)
-		left = m.styles.HeaderAccent.Render("▸") + " " +
-			m.styles.StatusText.Render(p.Name) + "  " +
-			m.styles.StatusDim.Render("pid") + " " +
-			m.styles.StatusPid.Render(fmt.Sprintf("%d", p.PID)) + "  " +
-			m.styles.StatusDim.Render("·  port") + " " +
-			classStyle.Render(p.Port) + "  " +
-			m.styles.StatusDim.Render("·") + "  " +
+		left = m.styles.StatusDim.Render("▸", " ") +
+			m.styles.StatusText.Render(p.Name, " ") +
+			m.styles.StatusDim.Render("pid", " ") +
+			m.styles.StatusPid.Render(fmt.Sprintf("%d", p.PID), " ") +
+			m.styles.StatusDim.Render("·  port", " ") +
+			classStyle.Render(p.Port, " ") +
+			m.styles.StatusDim.Render("·", " ") +
 			classStyle.Render(class.String())
 	} else {
 		left = m.styles.StatusDim.Italic(true).Render("no selection")
@@ -207,28 +207,24 @@ func (m model) renderStatusLine() string {
 		arrow = "↓"
 	}
 	rightParts = append(rightParts,
-		m.styles.StatusDim.Render("sort")+" "+
-			m.styles.StatusText.Bold(true).Render(m.sortKey.String())+" "+
-			m.styles.StatusText.Render(arrow))
+		m.styles.StatusDim.Render("sort", " ")+
+			m.styles.StatusText.Bold(true).Render(m.sortKey.String(), " ")+
+			m.styles.StatusText.Render(arrow, " "))
 
 	if m.autoRefresh {
-		rightParts = append(rightParts,
-			m.styles.AutoRefreshOn.Render("●")+" "+
-				m.styles.StatusDim.Render(fmt.Sprintf("auto in %ds", m.nextTickIn)))
+		rightParts = append(rightParts, m.styles.StatusDim.Render(fmt.Sprintf("auto in %ds", m.nextTickIn)))
 	} else {
-		rightParts = append(rightParts,
-			m.styles.StatusDim.Render("○ auto off"))
+		rightParts = append(rightParts, m.styles.StatusDim.Render("○ auto off", " "))
 	}
 
-	right := strings.Join(rightParts, "  "+m.styles.StatusDim.Render("·")+"  ")
+	right := strings.Join(rightParts, m.styles.StatusDim.Render("·", "  "))
 
 	innerW := m.width - 2
 	leftW := lipgloss.Width(left)
 	rightW := lipgloss.Width(right)
 	gap := max(innerW-leftW-rightW, 2)
 
-	line := " " + left + strings.Repeat(" ", gap) + right + " "
-	return m.styles.StatusBar.Width(m.width).Render(line)
+	return " " + left + strings.Repeat(m.styles.StatusBar.Render(" "), gap) + right + " "
 }
 
 // renderHelpBar renders the slim footer with only the most important keys.

@@ -28,9 +28,9 @@ type Styles struct {
 	PortAny        lipgloss.Style
 
 	// Filter bar
-	FilterBorder      lipgloss.Style
-	FilterModeActive  lipgloss.Style
-	FilterModeIdle    lipgloss.Style
+	FilterBorder     lipgloss.Style
+	FilterModeActive lipgloss.Style
+	FilterModeIdle   lipgloss.Style
 
 	// Status line
 	StatusBar  lipgloss.Style
@@ -105,14 +105,19 @@ func NewStyles(t theme.Theme) Styles {
 
 		// Port class
 		PortPrivileged: lipgloss.NewStyle().
+			Background(lipgloss.Color(t.StatusBarBg)).
 			Foreground(lipgloss.Color(t.PortPrivileged)),
 		PortDev: lipgloss.NewStyle().
+			Background(lipgloss.Color(t.StatusBarBg)).
 			Foreground(lipgloss.Color(t.PortDev)),
 		PortRegistered: lipgloss.NewStyle().
+			Background(lipgloss.Color(t.StatusBarBg)).
 			Foreground(lipgloss.Color(t.PortRegistered)),
 		PortEphemeral: lipgloss.NewStyle().
+			Background(lipgloss.Color(t.StatusBarBg)).
 			Foreground(lipgloss.Color(t.PortEphemeral)),
 		PortAny: lipgloss.NewStyle().
+			Background(lipgloss.Color(t.StatusBarBg)).
 			Foreground(lipgloss.Color(t.PortAny)),
 
 		// Filter bar
@@ -140,11 +145,14 @@ func NewStyles(t theme.Theme) Styles {
 		StatusBar: lipgloss.NewStyle().
 			Background(lipgloss.Color(t.StatusBarBg)),
 		StatusPid: lipgloss.NewStyle().
+			Background(lipgloss.Color(t.StatusBarBg)).
 			Foreground(lipgloss.Color(t.StatusPidFg)).
 			Bold(true),
 		StatusText: lipgloss.NewStyle().
+			Background(lipgloss.Color(t.StatusBarBg)).
 			Foreground(lipgloss.Color(t.StatusText)),
 		StatusDim: lipgloss.NewStyle().
+			Background(lipgloss.Color(t.StatusBarBg)).
 			Foreground(lipgloss.Color(t.HeaderDimFg)),
 
 		// Help bar (legacy, kept for backward compat)

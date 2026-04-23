@@ -71,10 +71,6 @@ confirm_chip_fg     = "#a6da95"   # Red — inverted chip foreground
 # Row selection
 row_selected_bar    = "#8aadf4"   # accent — left rail color
 
-# Row TYPE column
-row_type_ipv4_fg    = "#7dc4e4"   # Sapphire — IPv4 text color
-row_type_ipv6_fg    = "#c6a0f6"   # Mauve — IPv6 text color
-
 # Header
 header_fg           = "#cad3f5"   # Text
 header_dim_fg       = "#6e738d"   # Overlay0
@@ -132,19 +128,10 @@ type Theme struct {
 	FooterKeyBg        string `toml:"footer_key_bg"`
 	FooterKeyFg        string `toml:"footer_key_fg"`
 	FooterLabelFg      string `toml:"footer_label_fg"`
-	RowTypeIPv4Fg      string `toml:"row_type_ipv4_fg"`
-	RowTypeIPv6Fg      string `toml:"row_type_ipv6_fg"`
 }
 
 type configFile struct {
-	SelectionStyle string `toml:"selection_style"`
 	Colors         Theme  `toml:"colors"`
-}
-
-// Config holds the full parsed configuration including non-color settings.
-type Config struct {
-	Theme          Theme
-	SelectionStyle string // "bar" or "block"
 }
 
 func DefaultTheme() Theme {
@@ -186,85 +173,27 @@ func DefaultTheme() Theme {
 		ConfirmBarFg:       "#24273a",
 		ConfirmChipBg:      "#24273a",
 		ConfirmChipFg:      "#a6da95",
-		RowSelectedBar:     "#8aadf4",
 		HeaderFg:           "#cad3f5",
 		HeaderDimFg:        "#6e738d",
 		FooterKeyBg:        "#363a4f",
 		FooterKeyFg:        "#b7bdf8",
 		FooterLabelFg:      "#8087a2",
-		RowTypeIPv4Fg:      "#7dc4e4",
-		RowTypeIPv6Fg:      "#c6a0f6",
 	}
-}
-
-// resolve fills zero-value new fields with sensible fallbacks from existing keys.
-func (t *Theme) resolve() {
-	def := DefaultTheme()
-	fallback := func(val *string, primary, secondary string) {
-		if *val == "" {
-			if primary != "" {
-				*val = primary
-			} else {
-				*val = secondary
-			}
-		}
-	}
-
-	fallback(&t.AutoRefreshOn, t.YesButton, def.AutoRefreshOn)
-	fallback(&t.AutoRefreshOff, "", def.AutoRefreshOff)
-	fallback(&t.Accent, t.HelpKeyBg, def.Accent)
-	fallback(&t.FilterBorder, t.TableHeaderBorder, def.FilterBorder)
-	fallback(&t.FilterLabelFg, t.StatusText, def.FilterLabelFg)
-	fallback(&t.FilterPlaceholder, "", def.FilterPlaceholder)
-	fallback(&t.FilterModeActiveBg, t.Accent, def.FilterModeActiveBg)
-	fallback(&t.FilterModeActiveFg, "", def.FilterModeActiveFg)
-	fallback(&t.FilterModeIdleBg, t.HelpBarBg, def.FilterModeIdleBg)
-	fallback(&t.FilterModeIdleFg, t.StatusText, def.FilterModeIdleFg)
-	fallback(&t.MatchHighlightBg, t.Accent, def.MatchHighlightBg)
-	fallback(&t.MatchHighlightFg, "", def.MatchHighlightFg)
-	fallback(&t.SortActiveFg, t.Accent, def.SortActiveFg)
-	fallback(&t.PortPrivileged, "", def.PortPrivileged)
-	fallback(&t.PortDev, "", def.PortDev)
-	fallback(&t.PortRegistered, "", def.PortRegistered)
-	fallback(&t.PortEphemeral, "", def.PortEphemeral)
-	fallback(&t.PortAny, "", def.PortAny)
-	fallback(&t.StatusBarBg, "", def.StatusBarBg)
-	fallback(&t.StatusPidFg, "", def.StatusPidFg)
-	fallback(&t.ConfirmBarBg, t.DialogBorder, def.ConfirmBarBg)
-	fallback(&t.ConfirmBarFg, "", def.ConfirmBarFg)
-	fallback(&t.ConfirmChipBg, "", def.ConfirmChipBg)
-	fallback(&t.ConfirmChipFg, t.ConfirmBarBg, def.ConfirmChipFg)
-	fallback(&t.RowSelectedBar, t.Accent, def.RowSelectedBar)
-	fallback(&t.HeaderFg, t.DialogBody, def.HeaderFg)
-	fallback(&t.HeaderDimFg, "", def.HeaderDimFg)
-	fallback(&t.FooterKeyBg, t.HelpBarBg, def.FooterKeyBg)
-	fallback(&t.FooterKeyFg, t.HelpBarFg, def.FooterKeyFg)
-	fallback(&t.FooterLabelFg, t.HelpBarFg, def.FooterLabelFg)
-	fallback(&t.RowTypeIPv4Fg, t.PortRegistered, def.RowTypeIPv4Fg)
-	fallback(&t.RowTypeIPv6Fg, t.DialogBorder, def.RowTypeIPv6Fg)
 }
 
 // Load reads the theme from the XDG config file. If missing or invalid, returns defaults.
-func Load() Config {
+func Load() Theme {
 	path, err := xdg.SearchConfigFile(configPath)
 	if err != nil {
-		return Config{Theme: DefaultTheme(), SelectionStyle: "bar"}
+		return DefaultTheme()
 	}
 
 	var cfg configFile
 	if _, err := toml.DecodeFile(path, &cfg); err != nil {
 		fmt.Fprintf(os.Stderr, "phunter: warning: failed to parse %s: %v (using defaults)\n", path, err)
-		return Config{Theme: DefaultTheme(), SelectionStyle: "bar"}
+		return DefaultTheme()
 	}
-
-	cfg.Colors.resolve()
-
-	style := cfg.SelectionStyle
-	if style == "" {
-		style = "bar"
-	}
-
-	return Config{Theme: cfg.Colors, SelectionStyle: style}
+	return cfg.Colors
 }
 
 // EnsureConfig writes the default config file if it doesn't already exist.

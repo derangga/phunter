@@ -73,10 +73,6 @@ type killMsg struct {
 	err  error
 }
 
-type killDoneMsg struct {
-	pid int
-}
-
 type batchKillMsg struct {
 	killed int
 	errors []string
@@ -86,7 +82,6 @@ type model struct {
 	table    table.Model
 	styles   Styles
 	theme    theme.Theme
-	selStyle string // "bar" or "block"
 	version  string
 
 	allProcs  []process.Process // full snapshot
@@ -117,8 +112,8 @@ type model struct {
 }
 
 // New creates and returns the initial TUI model.
-func New(cfg theme.Config, version string) model {
-	styles := NewStyles(cfg.Theme)
+func New(th theme.Theme, version string) model {
+	styles := NewStyles(th)
 
 	t := table.New(
 		table.WithColumns(tableColumns(20)),
@@ -146,8 +141,7 @@ func New(cfg theme.Config, version string) model {
 	return model{
 		table:        t,
 		styles:       styles,
-		theme:        cfg.Theme,
-		selStyle:     cfg.SelectionStyle,
+		theme:        th,
 		version:      version,
 		selectedPIDs: make(map[int]bool),
 		nameInput:    ni,
@@ -167,12 +161,6 @@ func refreshCmd() tea.Cmd {
 func tickCmd() tea.Cmd {
 	return tea.Tick(1*time.Second, func(t time.Time) tea.Msg {
 		return tickMsg(t)
-	})
-}
-
-func clearToastCmd() tea.Cmd {
-	return tea.Tick(3*time.Second, func(time.Time) tea.Msg {
-		return clearToastMsg{}
 	})
 }
 
@@ -219,9 +207,6 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.toast = fmt.Sprintf("killed %s (PID %d)", msg.name, msg.pid)
 		m.toastUntil = time.Now().Add(3 * time.Second)
 		return m, refreshCmd()
-
-	case killDoneMsg:
-		return m, nil
 
 	case batchKillMsg:
 		m.selectedPIDs = make(map[int]bool)
