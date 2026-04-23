@@ -323,6 +323,7 @@ func (m model) renderHelpOverlay() string {
 		{"Space", "select / deselect"},
 		{"Enter / k", "kill selected"},
 		{"/", "open filter"},
+		{"Tab", "switch name/port in search mode"},
 		{"s", "cycle sort"},
 		{"r", "refresh"},
 		{"a", "toggle auto-refresh"},
