@@ -53,7 +53,8 @@ type Styles struct {
 	ToastStyle lipgloss.Style
 
 	// Bubbles table
-	Table table.Styles
+	Table    table.Styles
+	TableBox lipgloss.Style
 
 	// Help overlay
 	HelpOverlay lipgloss.Style
@@ -216,10 +217,33 @@ func NewStyles(t theme.Theme) Styles {
 		Bold(true).
 		Foreground(lipgloss.Color(t.HeaderDimFg))
 	ts.Selected = ts.Selected.
+		BorderStyle(lipgloss.NormalBorder()).
+		BorderForeground(lipgloss.Color(t.TableHeaderBorder)).
+		BorderLeft(true).
+		BorderRight(true).
+		Foreground(lipgloss.Color(t.SelectedRowFg)).
+		Background(lipgloss.Color(t.SelectedRowBg)).
+		Bold(false)
+	ts.Cell = ts.Cell.
+		BorderStyle(lipgloss.NormalBorder()).
+		BorderForeground(lipgloss.Color(t.TableHeaderBorder)).
+		BorderLeft(false).
+		BorderRight(false).
+		BorderTop(false).
+		BorderBottom(false)
+	ts.Selected = ts.Selected.
+		BorderLeft(false).
+		BorderRight(false).
+		BorderTop(false).
+		BorderBottom(false).
 		Foreground(lipgloss.Color(t.SelectedRowFg)).
 		Background(lipgloss.Color(t.SelectedRowBg)).
 		Bold(false)
 	s.Table = ts
+	s.TableBox = lipgloss.NewStyle().
+		Border(lipgloss.NormalBorder()).
+		BorderForeground(lipgloss.Color(t.TableHeaderBorder)).
+		Padding(0, 0)
 
 	return s
 }

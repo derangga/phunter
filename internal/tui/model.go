@@ -123,10 +123,12 @@ func New(th theme.Theme, version string) model {
 	t.SetStyles(styles.Table)
 
 	ni := textinput.New()
+	ni.Prompt = " "
 	ni.Placeholder = "filter by name..."
 	ni.CharLimit = 64
 
 	pi := textinput.New()
+	pi.Prompt = " "
 	pi.Placeholder = "filter by port..."
 	pi.CharLimit = 16
 	pi.Validate = func(s string) error {
@@ -445,10 +447,10 @@ func (m *model) cycleSort() {
 }
 
 func (m *model) viewHeight() int {
-	// app header(1) + status(3) + help bar border(1) + help bar content(1) = 6
+	// app header(1) + status(3) + help bar border(1) + help bar content(1) + table box border(2) = 8
 	// filter bar adds 3 when visible
 	// The bubbles table handles its own header+border internally
-	overhead := 6
+	overhead := 8
 	if m.mode == ModeFilter || m.nameInput.Value() != "" || m.portInput.Value() != "" {
 		overhead += 3
 	}
@@ -463,7 +465,7 @@ func (m *model) nameColWidth() int {
 	// bubbles table adds Padding(0,1) per cell = 2 chars per column
 	// 7 columns × 2 = 14 chars of cell padding
 	fixed := colGlyph + colPID + colUser + colType + colAddr + colPort + 14
-	w := m.width - fixed
+	w := m.width - fixed - 2
 	if w < 12 {
 		w = 12
 	}

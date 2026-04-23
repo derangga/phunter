@@ -29,7 +29,7 @@ func (m model) View() string {
 	}
 
 	// 3. Table (header + rows via bubbles table)
-	sections = append(sections, m.table.View())
+	sections = append(sections, m.styles.TableBox.Render(m.table.View()))
 
 	// 4. Status line
 	statusLine := m.renderStatusLine()
