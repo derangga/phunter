@@ -101,7 +101,7 @@ func (m model) renderHeader() string {
 	rightW := lipgloss.Width(right)
 	gap := max(m.width-leftW-rightW, 2)
 
-	return left + strings.Repeat(" ", gap) + right
+	return "\n" + left + strings.Repeat(" ", gap) + right + "\n"
 }
 
 // renderFilterBar renders the filter input bar with NAME|PORT mode pills.
@@ -315,7 +315,9 @@ func (m model) renderKillDialog() string {
 
 // renderHelpOverlay renders a floating overlay showing all keybindings.
 func (m model) renderHelpOverlay() string {
-	title := m.styles.HeaderTitle.Render("Keybindings")
+	title := m.styles.HeaderTitle.Render("PortHunter") + "\n" +
+		m.styles.Description.Render("Hunt the active port and Kill it") + "\n\n" +
+		m.styles.HeaderTitle.Render("Keybindings")
 
 	type binding struct{ key, desc string }
 	bindings := []binding{

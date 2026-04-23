@@ -61,6 +61,9 @@ header_dim_fg       = "#6e738d"   # Overlay0
 footer_key_bg       = "#363a4f"   # Surface0 — key chip background
 footer_key_fg       = "#b7bdf8"   # Lavender — key chip foreground
 footer_label_fg     = "#8087a2"   # Overlay1 — key label foreground
+
+# App description (help overlay)
+description          = "#b7bdf8"   # Lavender
 `
 
 type Theme struct {
@@ -97,6 +100,7 @@ type Theme struct {
 	FooterKeyBg        string `toml:"footer_key_bg"`
 	FooterKeyFg        string `toml:"footer_key_fg"`
 	FooterLabelFg      string `toml:"footer_label_fg"`
+	Description        string `toml:"description"`
 }
 
 type configFile struct {
@@ -137,6 +141,7 @@ func DefaultTheme() Theme {
 		FooterKeyBg:        "#363a4f",
 		FooterKeyFg:        "#b7bdf8",
 		FooterLabelFg:      "#8087a2",
+		Description:        "#b7bdf8",
 	}
 }
 

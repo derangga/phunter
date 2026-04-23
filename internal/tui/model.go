@@ -450,14 +450,11 @@ func (m *model) viewHeight() int {
 	// app header(1) + status(3) + help bar border(1) + help bar content(1) + table box border(2) = 8
 	// filter bar adds 3 when visible
 	// The bubbles table handles its own header+border internally
-	overhead := 8
+	overhead := 10
 	if m.mode == ModeFilter || m.nameInput.Value() != "" || m.portInput.Value() != "" {
 		overhead += 3
 	}
-	vh := m.height - overhead
-	if vh < 1 {
-		vh = 1
-	}
+	vh := max(m.height-overhead, 1)
 	return vh
 }
 
@@ -465,10 +462,7 @@ func (m *model) nameColWidth() int {
 	// bubbles table adds Padding(0,1) per cell = 2 chars per column
 	// 7 columns × 2 = 14 chars of cell padding
 	fixed := colGlyph + colPID + colUser + colType + colAddr + colPort + 14
-	w := m.width - fixed - 2
-	if w < 12 {
-		w = 12
-	}
+	w := max(m.width-fixed-2, 12)
 	return w
 }
 

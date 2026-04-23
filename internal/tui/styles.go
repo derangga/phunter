@@ -41,6 +41,7 @@ type Styles struct {
 	// Footer keybind bar
 	FooterKey   lipgloss.Style
 	FooterLabel lipgloss.Style
+	Description lipgloss.Style
 
 	// Kill confirmation
 	ConfirmYes lipgloss.Style
@@ -60,7 +61,6 @@ type Styles struct {
 }
 
 func NewStyles(t theme.Theme) Styles {
-	accent := lipgloss.Color(t.Title)
 
 	s := Styles{
 		// Header
@@ -70,7 +70,7 @@ func NewStyles(t theme.Theme) Styles {
 		HeaderDim: lipgloss.NewStyle().
 			Foreground(lipgloss.Color(t.HeaderDimFg)),
 		HeaderAccent: lipgloss.NewStyle().
-			Foreground(accent).
+			Foreground(lipgloss.Color(t.Title)).
 			Bold(true),
 		AutoRefreshOn: lipgloss.NewStyle().
 			Foreground(lipgloss.Color(t.AutoRefreshOn)).
@@ -141,6 +141,8 @@ func NewStyles(t theme.Theme) Styles {
 			Padding(0, 1),
 		FooterLabel: lipgloss.NewStyle().
 			Foreground(lipgloss.Color(t.FooterLabelFg)),
+		Description: lipgloss.NewStyle().
+			Foreground(lipgloss.Color(t.Description)),
 
 		// Kill confirmation
 		ConfirmYes: lipgloss.NewStyle().
