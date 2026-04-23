@@ -9,7 +9,7 @@ import (
 func TestApplyFilterAndSort(t *testing.T) {
 	procs := []process.Process{
 		{PID: 100, Name: "nginx", User: "root", Type: "IPv4", Address: "0.0.0.0", Port: "80"},
-		{PID: 200, Name: "node", User: "dev", Type: "IPv4", Address: "127.0.0.1", Port: "3000"},
+		{PID: 200, Name: "node-dev", User: "dev", Type: "IPv4", Address: "127.0.0.1", Port: "3000"},
 		{PID: 300, Name: "postgres", User: "postgres", Type: "IPv4", Address: "127.0.0.1", Port: "5432"},
 		{PID: 400, Name: "sshd", User: "root", Type: "IPv4", Address: "0.0.0.0", Port: "22"},
 		{PID: 150, Name: "vite", User: "dev", Type: "IPv4", Address: "127.0.0.1", Port: "5173"},
@@ -27,7 +27,7 @@ func TestApplyFilterAndSort(t *testing.T) {
 
 	t.Run("name filter", func(t *testing.T) {
 		result := applyFilterAndSort(procs, "node", "", SortPID, true)
-		if len(result) != 1 || result[0].Name != "node" {
+		if len(result) != 1 || result[0].Name != "node-dev" {
 			t.Errorf("name filter failed: got %d results", len(result))
 		}
 	})
@@ -48,8 +48,8 @@ func TestApplyFilterAndSort(t *testing.T) {
 
 	t.Run("combined filter (AND)", func(t *testing.T) {
 		result := applyFilterAndSort(procs, "dev", "30", SortPID, true)
-		if len(result) != 1 || result[0].Name != "node" {
-			t.Errorf("combined filter expected node, got %d results", len(result))
+		if len(result) != 1 || result[0].Name != "node-dev" {
+			t.Errorf("combined filter expected node-dev, got %d results", len(result))
 		}
 	})
 
