@@ -16,7 +16,7 @@
       system:
       let
         pkgs = nixpkgs.legacyPackages.${system};
-        version = "0.2.3";
+        version = "0.3.0";
       in
       {
         packages.default = pkgs.buildGoModule {
@@ -26,7 +26,7 @@
 
           # Run `nix build` once with the placeholder below — it will fail and
           # print the correct hash. Replace this value with that hash.
-          vendorHash = "sha256-FwfpQvOVHmeS4KQuMhOUX/Hc4GDunG+fsT2ZMwLIJUo=";
+          vendorHash = "sha256-B+jvh+oSkIsna1zber6CdU5CX9vSricq+zlc7KzWoXM=";
 
           env.CGO_ENABLED = "0";
 
